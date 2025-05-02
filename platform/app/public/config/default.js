@@ -42,9 +42,9 @@ window.config = {
       configuration: {
         friendlyName: 'AWS S3 Static wado server',
         name: 'aws',
-        wadoUriRoot: 'http://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
-        qidoRoot: 'http://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
-        wadoRoot: 'http://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
+        wadoUriRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
+        qidoRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
+        wadoRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',
