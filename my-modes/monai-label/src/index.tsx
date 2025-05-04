@@ -11,7 +11,7 @@ const ohif = {
   layout: '@ohif/extension-default.layoutTemplateModule.viewerLayout',
   sopClassHandler: '@ohif/extension-default.sopClassHandlerModule.stack',
   hangingProtocol: '@ohif/extension-default.hangingProtocolModule.default',
-  leftPanel: '@ohif/extension-default.panelModule.seriesList',
+  // leftPanel: '@ohif/extension-default.panelModule.seriesList',
   rightPanel: '@ohif/extension-default.panelModule.measure',
 };
 
@@ -135,7 +135,7 @@ function modeFactory({ modeConfiguration }) {
             props: {
               rightPanelDefaultClosed: false,
               /* leftPanelDefaultClosed: true, */
-              leftPanels: [ohif.leftPanel],
+              leftPanels: [],
               rightPanels: [monailabel.monaiLabel],
               viewports: [
                 {
