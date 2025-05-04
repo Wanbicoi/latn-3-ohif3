@@ -1,7 +1,7 @@
 /** @type {AppTypes.Config} */
 
 window.config = {
-  routerBasename: '/',
+  routerBasename: '/ohif3',
   // whiteLabeling: {},
   extensions: [],
   modes: [],

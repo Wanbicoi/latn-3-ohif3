@@ -18,7 +18,7 @@
   },
   "proxy": "http://localhost:8042",
   "scripts": {
-    "build:viewer": "cross-env NODE_ENV=production yarn run build",
+    "build:viewer": "cross-env NODE_ENV=production PUBLIC_URL=/ohif3/ yarn run build",
     "build:dev": "cross-env NODE_ENV=development yarn run build",
     "build:aws": "cross-env NODE_ENV=development APP_CONFIG=config/aws_static.js yarn run build && gzip -9 -r dist",
     "build:viewer:ci": "cross-env NODE_ENV=production PUBLIC_URL=/ APP_CONFIG=config/netlify.js QUICK_BUILD=false yarn run build",
@@ -27,7 +27,7 @@
     "build": "node --max_old_space_size=8096 ./../../node_modules/webpack/bin/webpack.js --progress --config .webpack/webpack.pwa.js",
     "clean": "shx rm -rf dist",
     "clean:deep": "yarn run clean && shx rm -rf node_modules",
-    "dev": "cross-env NODE_ENV=development webpack serve --config .webpack/webpack.pwa.js",
+    "dev": "cross-env NODE_ENV=development PUBLIC_URL=/ohif3/ OHIF_PORT=3001 webpack serve --config .webpack/webpack.pwa.js",
     "dev:no:cache": "cross-env NODE_ENV=development webpack serve --no-cache --config .webpack/webpack.pwa.js",
     "dev:orthanc": "cross-env NODE_ENV=development PROXY_TARGET=http://localhost:3000/pacs/dicom-web PROXY_DOMAIN=http://localhost:8042 PROXY_PATH_REWRITE_FROM=/pacs/dicom-web PROXY_PATH_REWRITE_TO=/dicom-web APP_CONFIG=config/docker-nginx-orthanc.js webpack serve --config .webpack/webpack.pwa.js",
     "dev:orthanc:no:cache": "cross-env NODE_ENV=development PROXY_TARGET=http://localhost:3000/pacs/dicom-web PROXY_DOMAIN=http://localhost:8042 PROXY_PATH_REWRITE_FROM=/pacs/dicom-web PROXY_PATH_REWRITE_TO=/dicom-web APP_CONFIG=config/docker-nginx-orthanc.js webpack serve --no-cache --config .webpack/webpack.pwa.js",
