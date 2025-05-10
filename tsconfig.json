@@ -33,7 +33,6 @@
     "platform/**/public/**/*",
     "extensions/**/src/**/*",
     "modes/**/src/**/*",
-    "my-modes/**/src/**/*",
     "my-extensions/**/src/**/*",
     "tests/**/*"
   ],
