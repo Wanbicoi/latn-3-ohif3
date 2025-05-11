@@ -65,6 +65,10 @@
     {
       "packageName": "@ohif/extension-monai-label",
       "version": "3.0.0"
+    },
+    {
+      "packageName": "dicom-seg",
+      "version": "0.0.1"
     }
   ],
   "modes": [

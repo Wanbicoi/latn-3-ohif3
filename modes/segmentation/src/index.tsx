@@ -18,8 +18,8 @@ const cornerstone = {
 };
 
 const segmentation = {
-  sopClassHandler: '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
-  viewport: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+  sopClassHandler: 'dicom-seg.sopClassHandlerModule.dicom-seg',
+  viewport: 'dicom-seg.viewportModule.dicom-seg',
 };
 
 /**
@@ -29,7 +29,7 @@ const segmentation = {
 const extensionDependencies = {
   '@ohif/extension-default': '^3.0.0',
   '@ohif/extension-cornerstone': '^3.0.0',
-  '@ohif/extension-cornerstone-dicom-seg': '^3.0.0',
+  'dicom-seg': '0.0.1',
 };
 
 function modeFactory({ modeConfiguration }) {

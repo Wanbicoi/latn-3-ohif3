@@ -80,6 +80,7 @@ module.exports = (env, argv) => {
         SRC_DIR,
         path.resolve(__dirname, '../../../my-modes/monai-label/node_modules'),
         path.resolve(__dirname, '../../../my-extensions/monai-label/node_modules'),
+        path.resolve(__dirname, 'my-extensions/dicom-seg/node_modules'),
       ],
     },
     plugins: [
