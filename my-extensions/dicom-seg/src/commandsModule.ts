@@ -13,6 +13,8 @@ import { classes, DicomMetadataStore } from '@ohif/core';
 import vtkImageMarchingSquares from '@kitware/vtk.js/Filters/General/ImageMarchingSquares';
 import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
 import vtkImageData from '@kitware/vtk.js/Common/DataModel/ImageData';
+import { saveSeg, getSeg } from './utils/storageSeg';
+import { readSegmentation } from './utils/utils';
 
 const { segmentation: segmentationUtils } = utilities;
 
@@ -205,13 +207,17 @@ const commandsModule = ({
      * @param params.segmentationId - ID of the segmentation to be downloaded.
      *
      */
-    downloadSegmentation: ({ segmentationId }) => {
+    downloadSegmentation: props => {
+      const segmentationId = props.segmentationId;
       const segmentationInOHIF = segmentationService.getSegmentation(segmentationId);
       const generatedSegmentation = actions.generateSegmentation({
         segmentationId,
       });
 
-      downloadDICOMData(generatedSegmentation.dataset, `${segmentationInOHIF.label}`);
+      const taskId = new URLSearchParams(window.location.search).get('taskId');
+      saveSeg(generatedSegmentation.dataset, taskId);
+
+      // downloadDICOMData(generatedSegmentation.dataset, `${segmentationInOHIF.label}`);
     },
     /**
      * Stores a segmentation based on the provided segmentationId into a specified data source.
@@ -225,49 +231,14 @@ const commandsModule = ({
      * @returns {Object|void} Returns the naturalized report if successfully stored,
      * otherwise throws an error.
      */
-    storeSegmentation: async ({ segmentationId, dataSource }) => {
-      const promptResult = await createReportDialogPrompt(uiDialogService, {
-        extensionManager,
-      });
-
-      if (promptResult.action !== 1 && !promptResult.value) {
-        return;
-      }
-
-      const segmentation = segmentationService.getSegmentation(segmentationId);
-
-      if (!segmentation) {
-        throw new Error('No segmentation found');
-      }
-
-      const { label } = segmentation;
-      const SeriesDescription = promptResult.value || label || 'Research Derived Series';
-
-      const generatedData = actions.generateSegmentation({
-        segmentationId,
-        options: {
-          SeriesDescription,
-        },
-      });
-
-      if (!generatedData || !generatedData.dataset) {
-        throw new Error('Error during segmentation generation');
-      }
-
-      const { dataset: naturalizedReport } = generatedData;
-
-      await dataSource.store.dicom(naturalizedReport);
-
-      // The "Mode" route listens for DicomMetadataStore changes
-      // When a new instance is added, it listens and
-      // automatically calls makeDisplaySets
-
-      // add the information for where we stored it to the instance as well
-      naturalizedReport.wadoRoot = dataSource.getConfig().wadoRoot;
-
-      DicomMetadataStore.addInstances([naturalizedReport], true);
-
-      return naturalizedReport;
+    storeSegmentation: async props => {
+      console.log(props.segmentationId);
+      const segmentationInOHIF = segmentationService.getSegmentation(props.segmentationId);
+      console.log('hello');
+      // const taskId = new URLSearchParams(window.location.search).get('taskId');
+      // getSeg(taskId).then(dicomSegFile => {
+      //   readSegmentation(viewportGridService.getActiveViewportId(), dicomSegFile);
+      // });
     },
     /**
      * Converts segmentations into RTSS for download.

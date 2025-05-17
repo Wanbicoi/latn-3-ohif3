@@ -102,13 +102,10 @@ export const SegmentationSelectorHeader: React.FC<{ children?: React.ReactNode }
             <DropdownMenuPortal>
               <DropdownMenuSubContent>
                 <DropdownMenuItem onClick={() => storeSegmentation(activeSegmentation.id)}>
-                  {t('Export DICOM SEG')}
+                  Load
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSegmentationDownload(activeSegmentation.id)}>
-                  {t('Download DICOM SEG')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSegmentationDownloadRTSS(activeSegmentation.id)}>
-                  {t('Download DICOM RTSTRUCT')}
+                  Save
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
