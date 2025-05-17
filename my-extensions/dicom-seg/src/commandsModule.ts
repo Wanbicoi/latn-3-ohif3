@@ -236,9 +236,9 @@ const commandsModule = ({
       const segmentationInOHIF = segmentationService.getSegmentation(props.segmentationId);
       console.log('hello');
       // const taskId = new URLSearchParams(window.location.search).get('taskId');
-      // getSeg(taskId).then(dicomSegFile => {
-      //   readSegmentation(viewportGridService.getActiveViewportId(), dicomSegFile);
-      // });
+      // const dicomSegFile = await getSeg(taskId);
+      // const viewportId = viewportGridService.getActiveViewportId()
+      // await readSegmentation(viewportId, dicomSegFile);
     },
     /**
      * Converts segmentations into RTSS for download.

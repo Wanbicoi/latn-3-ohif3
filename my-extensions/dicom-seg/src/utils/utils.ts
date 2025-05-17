@@ -1,6 +1,8 @@
 import * as cornerstone from '@cornerstonejs/core';
 import * as cornerstoneDicomImageLoader from '@cornerstonejs/dicom-image-loader';
 import * as cornerstoneTools from '@cornerstonejs/tools';
+import * as cornerstoneAdapters from '@cornerstonejs/adapters';
+import { cache } from '@cornerstonejs/core';
 
 const { imageLoader, metaData } = cornerstone;
 const { segmentation: csToolsSegmentation } = cornerstoneTools;
@@ -30,11 +32,31 @@ export async function readSegmentation(viewportId: string, blob: Blob) {
 async function _loadSegmentation(viewportId: string, imageIds: string[], arrayBuffer: ArrayBuffer) {
   const newSegmentationId = 'LOAD_SEG_ID:' + cornerstone.utilities.uuidv4();
 
-  console.log(newSegmentationId);
-  await _addSegmentationsToState(newSegmentationId, imageIds, viewportId);
+  console.log('newSegmentationId', newSegmentationId);
+  const derivedImages = await _addSegmentationsToState(newSegmentationId, imageIds, viewportId);
 
-  // Update the dropdown
-  // updateSegmentationDropdown(newSegmentationId);
+  //
+  const generateToolState =
+    await cornerstoneAdapters.adaptersSEG.Cornerstone3D.Segmentation.generateToolState(
+      imageIds,
+      arrayBuffer,
+      metaData
+    );
+
+  //
+  derivedImages.forEach(image => {
+    const cachedImage = cache.getImage(image.imageId);
+
+    if (cachedImage) {
+      const pixelData = cachedImage.getPixelData();
+      pixelData.set(new Uint8Array(generateToolState.labelmapBufferArray[0]));
+    }
+  });
+  setTimeout(function () {
+    csToolsSegmentation.triggerSegmentationEvents.triggerSegmentationDataModified(
+      newSegmentationId
+    );
+  }, 200);
 }
 
 async function _addSegmentationsToState(segmentationId: string, imageIds: string[], viewportId) {
@@ -55,7 +77,7 @@ async function _addSegmentationsToState(segmentationId: string, imageIds: string
   ]);
 
   // Add the segmentation representation to the toolgroup
-  csToolsSegmentation.addSegmentationRepresentations(viewportId, [
+  await csToolsSegmentation.addSegmentationRepresentations(viewportId, [
     {
       segmentationId,
       type: cornerstoneTools.Enums.SegmentationRepresentations.Labelmap,
