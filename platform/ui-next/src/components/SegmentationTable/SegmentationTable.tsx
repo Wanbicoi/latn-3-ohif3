@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { PanelSection } from '../PanelSection';
 import { SegmentationTableProvider, SegmentationTableContext } from './SegmentationTableContext';
 import { SegmentationSegments } from './SegmentationSegments';
+import { SegmentationComments } from './SegmentationComments';
 import { SegmentationTableConfig } from './SegmentationTableConfig';
 import { AddSegmentRow } from './AddSegmentRow';
 import { AddSegmentationRow } from './AddSegmentationRow';
@@ -26,6 +27,7 @@ interface SegmentationTableComponent extends React.FC<SegmentationTableProps> {
   Header: typeof SegmentationHeader;
   Collapsed: typeof SegmentationCollapsed;
   Expanded: typeof SegmentationExpanded;
+  Comments: typeof SegmentationComments;
 }
 
 export const SegmentationTable: SegmentationTableComponent = (props: SegmentationTableProps) => {
@@ -74,3 +76,4 @@ SegmentationTable.SelectorHeader = SegmentationSelectorHeader;
 SegmentationTable.Header = SegmentationHeader;
 SegmentationTable.Collapsed = SegmentationCollapsed;
 SegmentationTable.Expanded = SegmentationExpanded;
+SegmentationTable.Comments = SegmentationComments;

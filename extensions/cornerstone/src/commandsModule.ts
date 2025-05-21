@@ -12,6 +12,7 @@ import {
   utilities as cstUtils,
   ReferenceLinesTool,
 } from '@cornerstonejs/tools';
+import supabaseClient from '../../../my-extensions/dicom-seg/src/utils/supabase';
 
 import { Types as OhifTypes } from '@ohif/core';
 import {
@@ -29,6 +30,7 @@ import { getFirstAnnotationSelected } from './utils/measurementServiceMappings/u
 import getActiveViewportEnabledElement from './utils/getActiveViewportEnabledElement';
 import toggleVOISliceSync from './utils/toggleVOISliceSync';
 import { usePositionPresentationStore, useSegmentationPresentationStore } from './stores';
+import supabase from '../../../my-extensions/dicom-seg/src/utils/supabase';
 
 const toggleSyncFunctions = {
   imageSlice: toggleImageSliceSync,
@@ -887,9 +889,9 @@ function commandsModule({
       const displaySetInstanceUID =
         options.displaySetInstanceUID || viewport.displaySetInstanceUIDs[0];
 
-      const segs = segmentationService.getSegmentations();
-
-      const label = options.label || `Segmentation ${segs.length + 1}`;
+      const taskId = new URLSearchParams(location.search).get('taskId');
+      const { data } = await supabaseClient.auth.getUser();
+      const label = options.label || `${data.user.email}-${taskId}`;
       const segmentationId = options.segmentationId || `${csUtils.uuidv4()}`;
 
       const displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
@@ -1060,9 +1062,45 @@ function commandsModule({
      * Deletes an entire segmentation
      * @param props.segmentationId - The ID of the segmentation to delete
      */
-    deleteSegmentationCommand: ({ segmentationId }) => {
-      const { segmentationService } = servicesManager.services;
+    deleteSegmentationCommand: async ({ segmentationId }) => {
+      const { segmentationService, displaySetService } = servicesManager.services;
       segmentationService.remove(segmentationId);
+
+      const { data } = await supabase.auth.getUser();
+      const taskId = new URLSearchParams(location.search).get('taskId');
+      const displaySet = displaySetService
+        .getActiveDisplaySets()
+        .find(d => d.SeriesDescription == `${data.user.email}-${taskId}`);
+
+      if (!displaySet) return;
+
+      const seriesInstanceUID = displaySet.SeriesInstanceUID;
+
+      if (!seriesInstanceUID) return;
+
+      const ORTHANC_SERVER_URL = 'https://latn-3.eastasia.cloudapp.azure.com/datasource';
+      const getOrthancSeriesUuidUrl = ORTHANC_SERVER_URL + '/tools/find';
+      const findSeriesUUID = await fetch(getOrthancSeriesUuidUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          Level: 'Series',
+          Query: {
+            SeriesInstanceUID: seriesInstanceUID,
+          },
+        }),
+      });
+
+      const seriesUUIDs = await findSeriesUUID.json();
+      if (!seriesUUIDs || !seriesUUIDs[0]) return;
+
+      const deleteUrl = `${ORTHANC_SERVER_URL}/series/${seriesUUIDs[0]}`;
+
+      await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          Accept: 'application/dicom+json',
+        },
+      });
     },
 
     /**

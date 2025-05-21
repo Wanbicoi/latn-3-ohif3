@@ -2,13 +2,17 @@ import React from 'react';
 import { SegmentationTable } from '@ohif/ui-next';
 import { useActiveViewportSegmentationRepresentations } from '../hooks/useActiveViewportSegmentationRepresentations';
 import { metaData } from '@cornerstonejs/core';
+import { viewport } from '@cornerstonejs/tools/utilities';
+import { supabaseClient } from '../../../../platform/ui-next/src/lib/utils';
+import { useQuery } from '@tanstack/react-query';
 
 export default function PanelSegmentation({
   servicesManager,
   commandsManager,
   children,
 }: withAppTypes) {
-  const { customizationService, viewportGridService, displaySetService } = servicesManager.services;
+  const { customizationService, viewportGridService, displaySetService, segmentationService } =
+    servicesManager.services;
 
   const { segmentationsWithRepresentations, disabled } =
     useActiveViewportSegmentationRepresentations({
@@ -183,6 +187,21 @@ export default function PanelSegmentation({
       isExportable,
     };
   });
+  const activeSegmentId = segmentationService.getActiveSegment(
+    viewportGridService.getActiveViewportId()
+  )?.segmentIndex;
+
+  const taskId = new URLSearchParams(location.search).get('taskId');
+  const { isLoading, data: userData } = useQuery({
+    queryKey: [`hasComments/${taskId}`],
+    queryFn: async () => await await supabaseClient.auth.getUser(),
+  });
+
+  const hasComment =
+    !isLoading &&
+    activeSegmentId &&
+    `${userData.data.user.email}-${taskId}` ===
+      segmentationService.getActiveSegmentation(viewportGridService.getActiveViewportId()).label;
 
   return (
     <>
@@ -224,12 +243,12 @@ export default function PanelSegmentation({
         {children}
         <SegmentationTable.Config />
         <SegmentationTable.AddSegmentationRow />
-
         {SegmentationTableMode === 'collapsed' ? (
           <SegmentationTable.Collapsed>
             <SegmentationTable.SelectorHeader />
             <SegmentationTable.AddSegmentRow />
             <SegmentationTable.Segments />
+            {hasComment && <SegmentationTable.Comments activeSegmentId={activeSegmentId} />}
           </SegmentationTable.Collapsed>
         ) : (
           <SegmentationTable.Expanded>

@@ -34,7 +34,7 @@ export const SegmentationSegments: React.FC<{
   }
 
   const segmentCount = Object.keys(representationToUse.segments).length;
-  const height = mode === 'collapsed' ? 'h-[900px]' : `h-[${segmentCount * 200}px]`;
+  const height = mode === 'collapsed' ? 'h-[300px]' : `h-[${segmentCount * 200}px]`;
 
   return (
     <ScrollArea

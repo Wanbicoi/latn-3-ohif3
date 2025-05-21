@@ -5,6 +5,7 @@ import getSopClassHandlerModule from './getSopClassHandlerModule';
 import getHangingProtocolModule from './getHangingProtocolModule';
 import getCommandsModule from './commandsModule';
 import { getToolbarModule } from './getToolbarModule';
+import supabase from './utils/supabase'
 
 const Component = React.lazy(() => {
   return import(/* webpackPrefetch: true */ './viewports/OHIFCornerstoneSEGViewport');
@@ -42,6 +43,17 @@ const extension = {
     };
 
     return [{ name: 'dicom-seg', component: ExtendedOHIFCornerstoneSEGViewport }];
+  },
+  getCustomizationModule(){
+    return [
+      {
+        name: 'supabase',
+        value: {
+          supabase,
+          taskId: new URLSearchParams(window.location.search).get('taskId')
+        }
+      }
+    ]
   },
   /**
    * SopClassHandlerModule should provide a list of sop class handlers that will be

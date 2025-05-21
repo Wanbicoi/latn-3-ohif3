@@ -13,8 +13,7 @@ import { classes, DicomMetadataStore } from '@ohif/core';
 import vtkImageMarchingSquares from '@kitware/vtk.js/Filters/General/ImageMarchingSquares';
 import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
 import vtkImageData from '@kitware/vtk.js/Common/DataModel/ImageData';
-import { saveSeg, getSeg } from './utils/storageSeg';
-import { readSegmentation } from './utils/utils';
+import supabaseClient from '../../../my-extensions/dicom-seg/src/utils/supabase';
 
 const { segmentation: segmentationUtils } = utilities;
 
@@ -46,26 +45,47 @@ const { downloadDICOMData } = helpers;
 const commandsModule = ({
   servicesManager,
   extensionManager,
+
 }: Types.Extensions.ExtensionParams): Types.Extensions.CommandsModule => {
   const {
     segmentationService,
-    uiDialogService,
+    uiNotificationService,
     displaySetService,
     viewportGridService,
     toolGroupService,
+    hangingProtocolService
   } = servicesManager.services as AppTypes.Services;
 
   const actions = {
-    /**
-     * Loads segmentations for a specified viewport.
-     * The function prepares the viewport for rendering, then loads the segmentation details.
-     * Additionally, if the segmentation has scalar data, it is set for the corresponding label map volume.
-     *
-     * @param {Object} params - Parameters for the function.
-     * @param params.segmentations - Array of segmentations to be loaded.
-     * @param params.viewportId - the target viewport ID.
-     *
-     */
+    initialSegmentation: async () => {
+      const { data } = await supabaseClient.auth.getUser();
+      const taskId = new URLSearchParams(location.search).get('taskId');
+      const displaySet = displaySetService
+        .getActiveDisplaySets()
+        .find(d => d.SeriesDescription == `${data.user.email}-${taskId}`);
+
+      if (!displaySet) return;
+
+      let updatedViewports = [];
+      try {
+        updatedViewports = hangingProtocolService.getViewportsRequireUpdate(
+          viewportGridService.getActiveViewportId(),
+          displaySet.displaySetInstanceUID,
+          false,
+        );
+      } catch (error) {
+        console.warn(error);
+        uiNotificationService.show({
+          title: 'Navigate Viewport Display Set',
+          message:
+            'The requested display sets could not be added to the viewport due to a mismatch in the Hanging Protocol rules.',
+          type: 'info',
+          duration: 3000,
+        });
+      }
+
+      viewportGridService.setDisplaySetsForViewports(updatedViewports);
+    },
     loadSegmentationsForViewport: async ({ segmentations, viewportId }) => {
       // Todo: handle adding more than one segmentation
       const viewport = getTargetViewport({ viewportId, viewportGridService });
@@ -207,17 +227,13 @@ const commandsModule = ({
      * @param params.segmentationId - ID of the segmentation to be downloaded.
      *
      */
-    downloadSegmentation: props => {
-      const segmentationId = props.segmentationId;
+    downloadSegmentation: ({ segmentationId }) => {
       const segmentationInOHIF = segmentationService.getSegmentation(segmentationId);
       const generatedSegmentation = actions.generateSegmentation({
         segmentationId,
       });
 
-      const taskId = new URLSearchParams(window.location.search).get('taskId');
-      saveSeg(generatedSegmentation.dataset, taskId);
-
-      // downloadDICOMData(generatedSegmentation.dataset, `${segmentationInOHIF.label}`);
+      downloadDICOMData(generatedSegmentation.dataset, `${segmentationInOHIF.label}`);
     },
     /**
      * Stores a segmentation based on the provided segmentationId into a specified data source.
@@ -231,14 +247,88 @@ const commandsModule = ({
      * @returns {Object|void} Returns the naturalized report if successfully stored,
      * otherwise throws an error.
      */
-    storeSegmentation: async props => {
-      console.log(props.segmentationId);
-      const segmentationInOHIF = segmentationService.getSegmentation(props.segmentationId);
-      console.log('hello');
-      // const taskId = new URLSearchParams(window.location.search).get('taskId');
-      // const dicomSegFile = await getSeg(taskId);
-      // const viewportId = viewportGridService.getActiveViewportId()
-      // await readSegmentation(viewportId, dicomSegFile);
+    storeSegmentation: async ({ segmentationId }) => {
+      actions.deleteSegmentationCommand();
+      const segmentation = segmentationService.getSegmentation(segmentationId);
+
+      if (!segmentation) {
+        throw new Error('No segmentation found');
+      }
+
+      const { label } = segmentation;
+      const SeriesDescription = label;
+      
+
+      const generatedData = actions.generateSegmentation({
+        segmentationId,
+        options: {
+          SeriesDescription,
+        },
+      });
+
+      if (!generatedData || !generatedData.dataset) {
+        throw new Error('Error during segmentation generation');
+      }
+
+      const { dataset: naturalizedReport } = generatedData;
+
+      const dataSource = extensionManager.getActiveDataSource()[0];
+      console.log(dataSource);
+      await dataSource.store.dicom(naturalizedReport);
+
+      // The "Mode" route listens for DicomMetadataStore changes
+      // When a new instance is added, it listens and
+      // automatically calls makeDisplaySets
+
+      // add the information for where we stored it to the instance as well
+      naturalizedReport.wadoRoot = dataSource.getConfig().wadoRoot;
+
+      DicomMetadataStore.addInstances([naturalizedReport], true);
+      uiNotificationService.show({
+        title: 'Segmentation',
+        message: 'Save segmentation successfully',
+        type: 'success',
+        duration: 1500,
+      });
+
+      return naturalizedReport;
+    },
+    deleteSegmentationCommand: async () => {
+      const { data } = await supabaseClient.auth.getUser();
+      const taskId = new URLSearchParams(location.search).get('taskId');
+      const displaySet = displaySetService
+        .getActiveDisplaySets()
+        .find(d => d.SeriesDescription == `${data.user.email}-${taskId}`);
+
+      if (!displaySet) return;
+
+      const seriesInstanceUID = displaySet.SeriesInstanceUID;
+
+      if (!seriesInstanceUID) return;
+
+      const ORTHANC_SERVER_URL = 'https://latn-3.eastasia.cloudapp.azure.com/datasource';
+      const getOrthancSeriesUuidUrl = ORTHANC_SERVER_URL + '/tools/find';
+      const findSeriesUUID = await fetch(getOrthancSeriesUuidUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          Level: 'Series',
+          Query: {
+            SeriesInstanceUID: seriesInstanceUID,
+          },
+        }),
+      });
+
+      const seriesUUIDs = await findSeriesUUID.json();
+      if (!seriesUUIDs || !seriesUUIDs[0]) return;
+
+      const deleteUrl = `${ORTHANC_SERVER_URL}/series/${seriesUUIDs[0]}`;
+
+      await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          Accept: 'application/dicom+json',
+        },
+      });
     },
     /**
      * Converts segmentations into RTSS for download.
@@ -307,19 +397,12 @@ const commandsModule = ({
   };
 
   const definitions = {
-    /**
-     * Obsolete?
-     */
-    loadSegmentationDisplaySetsForViewport: {
-      commandFn: actions.loadSegmentationDisplaySetsForViewport,
+    initialSegmentation: {
+      commandFn: actions.initialSegmentation,
     },
-    /**
-     * Obsolete?
-     */
     loadSegmentationsForViewport: {
       commandFn: actions.loadSegmentationsForViewport,
     },
-
     generateSegmentation: {
       commandFn: actions.generateSegmentation,
     },

@@ -43,6 +43,9 @@ let commandsManager: CommandsManager,
   serviceProvidersManager: ServiceProvidersManager,
   hotkeysManager: HotkeysManager;
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
 function App({
   config = {
     /**
@@ -109,6 +112,7 @@ function App({
   } = servicesManager.services;
 
   const providers = [
+    [QueryClientProvider, { client: queryClient }],
     [AppConfigProvider, { value: appConfigState }],
     [UserAuthenticationProvider, { service: userAuthenticationService }],
     [I18nextProvider, { i18n }],

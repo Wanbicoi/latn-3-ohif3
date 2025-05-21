@@ -8,8 +8,6 @@ const ohif = {
   layout: '@ohif/extension-default.layoutTemplateModule.viewerLayout',
   sopClassHandler: '@ohif/extension-default.sopClassHandlerModule.stack',
   hangingProtocol: '@ohif/extension-default.hangingProtocolModule.default',
-  // leftPanel: '@ohif/extension-default.panelModule.seriesList',
-  rightPanel: '@ohif/extension-default.panelModule.measure',
 };
 
 const cornerstone = {
@@ -71,6 +69,10 @@ function modeFactory({ modeConfiguration }) {
         'MoreTools',
       ]);
       toolbarService.createButtonSection('segmentationToolbox', ['BrushTools', 'Shapes']);
+
+      setTimeout(() => {
+        commandsManager.run('initialSegmentation');
+      }, 1000);
     },
     onModeExit: ({ servicesManager }: withAppTypes) => {
       const {
@@ -131,9 +133,7 @@ function modeFactory({ modeConfiguration }) {
           return {
             id: ohif.layout,
             props: {
-              // leftPanels: [ohif.leftPanel],
               rightPanels: [cornerstone.panelTool],
-              // leftPanelClosed: true,
               viewports: [
                 {
                   namespace: cornerstone.viewport,
