@@ -807,7 +807,14 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     const displaySet = displaySetService.getDisplaySetByUID(displaySetUIDs[0]);
     const displaySetModality = displaySet?.Modality;
     // Todo: use presentations states
-    const volumesProperties = volumeInputArray.map((volumeInput, index) => {
+    const validVolumeInputs = (volumeInputArray || []).filter(v => v?.volumeId);
+
+    if (!validVolumeInputs.length) {
+      // Nothing to set – bail out early.
+      return;
+    }
+
+    const volumesProperties = validVolumeInputs.map((volumeInput, index) => {
       const { volumeId } = volumeInput;
       const displaySetOption = displaySetOptions[index];
       const { voi, voiInverted, colormap, displayPreset } = displaySetOption;
@@ -839,7 +846,7 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     // For SEG and RT viewports
     const { addOverlayFn } = this._processExtraDisplaySetsForViewport(viewport) || {};
 
-    await viewport.setVolumes(volumeInputArray);
+    await viewport.setVolumes(validVolumeInputs);
 
     if (addOverlayFn) {
       addOverlayFn();
