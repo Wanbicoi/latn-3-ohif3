@@ -9,8 +9,9 @@ import { useQuery } from '@tanstack/react-query';
 export default function PanelSegmentation({
   servicesManager,
   commandsManager,
+  extensionManager,
   children,
-}: withAppTypes) {
+}: withAppTypes & { extensionManager?: any }) {
   const { customizationService, viewportGridService, displaySetService, segmentationService } =
     servicesManager.services;
 
@@ -70,7 +71,22 @@ export default function PanelSegmentation({
     },
 
     storeSegmentation: async segmentationId => {
-      commandsManager.run('storeSegmentation', { segmentationId });
+      // Retrieve the currently-active dataSource (e.g. the connected DICOMweb/Orthanc server).
+      // Some environments can have more than one dataSource registered, therefore we take the
+      // first (and usually the only) active dataSource returned by the extensionManager.
+      // If none is found we fall back to calling the command without the dataSource to preserve
+      // the previous behaviour.
+      const activeDataSources = extensionManager?.getActiveDataSource?.();
+      const dataSource = Array.isArray(activeDataSources) ? activeDataSources[0] : undefined;
+
+      if (dataSource) {
+        commandsManager.run('storeSegmentation', { segmentationId, dataSource });
+      } else {
+        // Fallback – this may still fail if the command implementation requires a dataSource
+        // but at least we tried to retrieve it.
+        console.warn('No active dataSource found – attempting to store segmentation without it');
+        commandsManager.run('storeSegmentation', { segmentationId });
+      }
     },
 
     onSegmentationDownloadRTSS: segmentationId => {
@@ -197,10 +213,12 @@ export default function PanelSegmentation({
     queryFn: async () => await await supabaseClient.auth.getUser(),
   });
 
+  const userEmail = userData?.data?.user?.email || 'anonymous';
+
   const hasComment =
     !isLoading &&
     activeSegmentId &&
-    `${userData.data.user.email}-${taskId}` ===
+    `${userEmail}-${taskId}` ===
       segmentationService.getActiveSegmentation(viewportGridService.getActiveViewportId()).label;
 
   return (
@@ -248,7 +266,10 @@ export default function PanelSegmentation({
             <SegmentationTable.SelectorHeader />
             <SegmentationTable.AddSegmentRow />
             <SegmentationTable.Segments />
-            {hasComment && <SegmentationTable.Comments activeSegmentId={activeSegmentId} />}
+            <SegmentationTable.Comments 
+              activeSegmentId={activeSegmentId || 1} 
+              servicesManager={servicesManager}
+            />
           </SegmentationTable.Collapsed>
         ) : (
           <SegmentationTable.Expanded>

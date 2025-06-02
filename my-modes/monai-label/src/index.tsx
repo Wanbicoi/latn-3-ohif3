@@ -1,6 +1,7 @@
 import { hotkeys } from '@ohif/core';
 import { id } from './id';
 import toolbarButtons from './toolbarButtons';
+import segmentationButtons from './segmentationButtons';
 import initToolGroups from './initToolGroups';
 
 const monailabel = {
@@ -62,7 +63,7 @@ function modeFactory({ modeConfiguration }) {
       initToolGroups(extensionManager, toolGroupService, commandsManager);
 
       toolbarService.addButtons(toolbarButtons);
-      // toolbarService.addButtons(segmentationButtons);
+      toolbarService.addButtons(segmentationButtons as any);
 
       toolbarService.createButtonSection('primary', [
         'WindowLevel',
@@ -134,8 +135,8 @@ function modeFactory({ modeConfiguration }) {
             id: ohif.layout,
             props: {
               rightPanelDefaultClosed: false,
-              /* leftPanelDefaultClosed: true, */
-              leftPanels: [],
+              leftPanelDefaultClosed: false,
+              leftPanels: ['@ohif/extension-default.panelModule.seriesList'],
               rightPanels: [monailabel.monaiLabel],
               viewports: [
                 {

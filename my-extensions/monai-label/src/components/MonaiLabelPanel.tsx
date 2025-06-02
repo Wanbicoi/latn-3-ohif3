@@ -11,7 +11,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import React, { Component } from 'react';
+// @ts-nocheck
+
+import React, { Component, createRef } from 'react';
 import PropTypes from 'prop-types';
 import './MonaiLabelPanel.css';
 import AutoSegmentation from './actions/AutoSegmentation';
@@ -27,6 +29,10 @@ import { currentSegmentsInfo } from '../utils/SegUtils';
 import SettingsTable from './SettingsTable';
 import * as cornerstoneTools from '@cornerstonejs/tools';
 import optionsInputDialog from './OptionsInputDialog';
+import { PanelSegmentation } from '@ohif/extension-cornerstone';
+import { Toolbox, Button, Icons } from '@ohif/ui-next';
+import SegmentationComments from '../../../../platform/ui-next/src/components/SegmentationTable/SegmentationComments';
+import SegmentationTools from './actions/SegmentationTools';
 
 export default class MonaiLabelPanel extends Component {
   static propTypes = {
@@ -42,8 +48,12 @@ export default class MonaiLabelPanel extends Component {
     segmentation: any;
     pointprompts: any;
     classprompts: any;
+    tools: any;
   };
   serverURI = 'http://127.0.0.1:8000';
+  _latestLoadedSegUID: string | null = null;
+  _toastShown = false;
+  _dsSubscription: any;
 
   constructor(props) {
     super(props);
@@ -56,6 +66,7 @@ export default class MonaiLabelPanel extends Component {
       segmentation: React.createRef(),
       pointprompts: React.createRef(),
       classprompts: React.createRef(),
+      tools: React.createRef(),
     };
 
     this.state = {
@@ -244,19 +255,29 @@ export default class MonaiLabelPanel extends Component {
   };
 
   onSelectActionTab = (name) => {
-    for (const action of Object.keys(this.actions)) {
-      if (this.state.action === action) {
-        if (this.actions[action].current) {
-          this.actions[action].current.onLeaveActionTab();
-        }
+    // If clicking the currently-open tab -> collapse (select hidden none)
+    const current = this.state.action;
+    if (current === name) {
+      // leave current
+      if (this.actions[current]?.current) {
+        this.actions[current].current.onLeaveActionTab();
       }
+      // select hidden radio to collapse UI
+      const noneInput = document.getElementById('tab-none') as HTMLInputElement | null;
+      if (noneInput) {
+        noneInput.checked = true;
+      }
+      this.setState({ action: null });
+      return;
     }
 
+    // otherwise switch to new tab
     for (const action of Object.keys(this.actions)) {
-      if (name === action) {
-        if (this.actions[action].current) {
-          this.actions[action].current.onEnterActionTab();
-        }
+      if (current === action && this.actions[action].current) {
+        this.actions[action].current.onLeaveActionTab();
+      }
+      if (name === action && this.actions[action].current) {
+        this.actions[action].current.onEnterActionTab();
       }
     }
     this.setState({ action: name });
@@ -391,6 +412,8 @@ export default class MonaiLabelPanel extends Component {
   };
 
   async componentDidMount() {
+    // (Auto-load logic removed as per new requirement – user will pick SEG manually)
+
     if (this.state.isDataReady) {
       return;
     }
@@ -401,6 +424,46 @@ export default class MonaiLabelPanel extends Component {
 
   onOptionsConfig = () => {
     return this.state.options;
+  };
+
+  /**
+   * Trigger Auto-Segmentation programmatically using the currently-selected
+   * model in the <AutoSegmentation> tab.
+   */
+  _runAutoSegmentation = () => {
+    const autoSegComp = this.actions['segmentation']?.current;
+    if (autoSegComp?.onSegmentation) {
+      // Open the tab if it is not the active one
+      const autoRadio = document.getElementById(autoSegComp.tabId) as HTMLInputElement | null;
+      if (autoRadio && !autoRadio.checked) {
+        autoRadio.click();
+      }
+      autoSegComp.onSegmentation();
+    } else {
+      this.notification?.show?.({
+        title: 'AI Segment',
+        message: 'Auto-Segmentation component not ready',
+        type: 'error',
+      });
+    }
+  };
+
+  _revertToOriginal = () => {
+    const { segmentationService, viewportGridService, displaySetService } =
+      this.props.servicesManager.services;
+
+    const segs = segmentationService.getSegmentations();
+    segs.forEach(s => {
+      try {
+        segmentationService.remove(s.segmentationId);
+      } catch (_) {}
+    });
+
+    this.notification?.show?.({
+      title: 'Segmentation',
+      message: 'All segmentations removed (reverted to original images)',
+      type: 'info',
+    });
   };
 
   render() {
@@ -421,6 +484,9 @@ export default class MonaiLabelPanel extends Component {
             <hr className="separator" />
           </div>
         )}
+        {/* hidden radio for collapsing all tabs */}
+        <input type="radio" id="tab-none" name="rd" className="tab-switch" style={{ display: 'none' }} />
+
         {isDataReady && (
           <div className="tabs scrollbar" id="style-3">
             <ActiveLearning
@@ -467,9 +533,25 @@ export default class MonaiLabelPanel extends Component {
               servicesManager={this.props.servicesManager}
               commandsManager={this.props.commandsManager}
             />
-          </div>
+            <SegmentationTools
+              ref={this.actions['tools']}
+              tabIndex={5}
+              runAutoSegmentation={this._runAutoSegmentation}
+              revert={this._revertToOriginal}
+              servicesManager={this.props.servicesManager}
+              commandsManager={this.props.commandsManager}
+              extensionManager={this.props.extensionManager}
+              onSelectActionTab={this.onSelectActionTab}
+              />
+            </div>
         )}
       </div>
     );
+  }
+
+  componentWillUnmount() {
+    if (this._dsSubscription && this._dsSubscription.unsubscribe) {
+      this._dsSubscription.unsubscribe();
+    }
   }
 }

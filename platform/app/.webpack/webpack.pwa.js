@@ -81,6 +81,12 @@ module.exports = (env, argv) => {
         path.resolve(__dirname, '../../../my-modes/monai-label/node_modules'),
         path.resolve(__dirname, '../../../my-extensions/monai-label/node_modules'),
         path.resolve(__dirname, '../../../my-extensions/dicom-seg/node_modules'),
+        path.resolve(__dirname, 'my-extensions/monai-label/node_modules'),
+        path.resolve(__dirname, 'my-extensions/dicom-seg/node_modules'),
+        path.resolve(__dirname, 'my-modes/monai-label/node_modules'),
+        path.resolve(__dirname, 'my-extensions/monai-label/node_modules'),
+        path.resolve(__dirname, 'my-extensions/dicom-seg/node_modules'),
+        path.resolve(__dirname, 'my-modes/monai-label/node_modules'),
       ],
     },
     plugins: [
