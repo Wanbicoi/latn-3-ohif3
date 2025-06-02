@@ -98,7 +98,19 @@ export default class MonaiLabelPanel extends Component {
     const { viewportGridService, displaySetService } =
       this.props.servicesManager.services;
     const { viewports, activeViewportId } = viewportGridService.getState();
+    
+    if (!activeViewportId || !viewports) {
+      console.warn('No active viewport ID or viewports available');
+      return { viewport: null, displaySet: null };
+    }
+    
     const viewport = viewports.get(activeViewportId);
+    
+    if (!viewport || !viewport.displaySetInstanceUIDs || viewport.displaySetInstanceUIDs.length === 0) {
+      console.warn('Viewport not found or no displaySetInstanceUIDs available');
+      return { viewport: null, displaySet: null };
+    }
+    
     const displaySet = displaySetService.getDisplaySetByUID(
       viewport.displaySetInstanceUIDs[0]
     );
@@ -226,6 +238,10 @@ export default class MonaiLabelPanel extends Component {
       // Wait for Above Segmentations to be added/available
       setTimeout(() => {
         const { viewport } = this.getActiveViewportInfo();
+        if (!viewport) {
+          console.warn('No viewport available for color setting');
+          return;
+        }
         for (const segmentIndex of Object.keys(initialSegs)) {
           cornerstoneTools.segmentation.config.color.setSegmentIndexColor(
             viewport.viewportId,
@@ -364,8 +380,12 @@ export default class MonaiLabelPanel extends Component {
 
         // get unique values to determine which organs to update, keep rest
         const updateTargets = new Set(convertedData);
-        const numImageFrames =
-          this.getActiveViewportInfo().displaySet.numImageFrames;
+        const activeViewportInfo = this.getActiveViewportInfo();
+        if (!activeViewportInfo.displaySet) {
+          console.warn('No displaySet available for slice calculation');
+          return;
+        }
+        const numImageFrames = activeViewportInfo.displaySet.numImageFrames;
         const sliceLength = scalarData.length / numImageFrames;
         const sliceBegin = sliceLength * sidx;
         const sliceEnd = sliceBegin + sliceLength;

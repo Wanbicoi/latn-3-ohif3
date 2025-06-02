@@ -74,6 +74,16 @@ export default class ClassPrompts extends BaseTab {
     const { info } = this.props;
     const { displaySet } = this.props.getActiveViewportInfo();
 
+    if (!displaySet) {
+      this.notification.show({
+        title: 'MONAI Label',
+        message: 'No display set available',
+        type: 'error',
+        duration: 5000,
+      });
+      return;
+    }
+
     const models = this.getModels();
     let selectedModel = 0;
     for (const model of models) {

@@ -16,7 +16,6 @@ export const SegmentationComments: React.FC<{
 }> = ({ segmentation, representation, activeSegmentId, servicesManager }) => {
   const { activeSegmentationId, data } = useSegmentationTableContext('SegmentationTable.Segments');
   const [comment, setComment] = useState('');
-  const [user] = useState('TrungHoang'); // Mock user - replace with real auth
   const [isLoading, setIsLoading] = useState(false);
 
   // Get SeriesInstanceUID from segmentation
@@ -77,7 +76,7 @@ export const SegmentationComments: React.FC<{
   
   const segmentId = segmentName;
 
-  // Query segment status
+  // Query segment status - move hooks above early return
   const { data: statusData, refetch: refetchStatus } = useQuery({
     queryKey: ['segmentStatus', taskId, segmentId, seriesInstanceUID],
     queryFn: async () => {
@@ -102,10 +101,10 @@ export const SegmentationComments: React.FC<{
 
       return data?.[0] || null;
     },
-    enabled: !!taskId && !!segmentId,
+    enabled: !!taskId && !!segmentId && !!seriesInstanceUID,
   });
 
-  // Query comments
+  // Query comments - move hooks above early return
   const { data: comments = [], refetch: refetchComments } = useQuery({
     queryKey: ['segmentComments', taskId, segmentId, seriesInstanceUID],
     queryFn: async () => {
@@ -129,7 +128,7 @@ export const SegmentationComments: React.FC<{
 
       return data || [];
     },
-    enabled: !!taskId && !!segmentId,
+    enabled: !!taskId && !!segmentId && !!seriesInstanceUID,
   });
 
   const currentStatus = statusData?.status || 'review';
@@ -139,8 +138,6 @@ export const SegmentationComments: React.FC<{
     mutationFn: async (newComment: string) => {
       // Get the current authenticated user
       const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-
-      console.log('User:', user);
       
       if (authError) {
         console.error('Auth error:', authError);
@@ -242,6 +239,51 @@ export const SegmentationComments: React.FC<{
       default: return <Eye className="w-5 h-5" />;
     }
   };
+
+  // Early return if no seriesInstanceUID - don't show comment/review functionality
+  if (!seriesInstanceUID) {
+    return (
+      <PanelSection className="bg-primary-dark">
+        <div className="space-y-4 p-4">
+          {/* Segment Info */}
+          <div className="w-full">
+            <div className="w-full bg-gradient-to-r from-gray-600 to-gray-800 rounded-lg p-3 mb-4">
+              <div className="flex flex-col gap-3">
+                <div className="text-sm text-gray-300 mb-1">Active Segment</div>
+                <div className="flex items-center justify-center">
+                  <span 
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg"
+                    style={{
+                      backgroundColor: segmentColor,
+                      color: segmentColor && 
+                        (parseInt(segmentColor.replace('#', '').replace('rgb(', '').replace(')', ''), 16) > 0xffffff/2) ? '#000' : '#fff'
+                    }}
+                    title={segmentId}
+                  >
+                    {segmentId}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* No SeriesInstanceUID Message */}
+          <div className="bg-yellow-900/50 border border-yellow-600 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <div className="text-yellow-400 text-2xl">⚠️</div>
+              <div>
+                <div className="text-yellow-200 font-semibold text-sm">No Series Instance UID</div>
+                <div className="text-yellow-300 text-xs mt-1">
+                  Comments and review status are only available for SEG series. 
+                  Please load a segmentation series to enable this functionality.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </PanelSection>
+    );
+  }
 
   return (
     <PanelSection className="bg-primary-dark">
