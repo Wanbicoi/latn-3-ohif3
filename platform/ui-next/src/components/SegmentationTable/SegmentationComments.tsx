@@ -137,13 +137,19 @@ export const SegmentationComments: React.FC<{
   // Mutation để thêm comment
   const addCommentMutation = useMutation({
     mutationFn: async (newComment: string) => {
-      // Try to get existing user or use first available user from profiles
-      const { data: profiles } = await supabaseClient
-        .from('hd_profiles')
-        .select('id')
-        .limit(1);
+      // Get the current authenticated user
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+      console.log('User:', user);
       
-      const userId = profiles?.[0]?.id || null;
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw authError;
+      }
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
       
       const { data, error } = await supabaseClient
         .from('hd_comments')
@@ -152,7 +158,7 @@ export const SegmentationComments: React.FC<{
           segment_id: segmentId,
           series_instance_uid: seriesInstanceUID,
           content: newComment,
-          user_id: userId,
+          user_id: user.id, // Use actual authenticated user ID
         })
         .select();
 
