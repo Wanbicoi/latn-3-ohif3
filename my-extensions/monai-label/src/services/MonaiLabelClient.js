@@ -170,6 +170,7 @@ export default class MonaiLabelClient {
     return axios
       .post(url, data, {
         responseType: responseType,
+        timeout: 600000, // 10 minutes timeout for inference requests
         headers: {
           accept: ['application/json', 'multipart/form-data'],
         },
@@ -179,6 +180,7 @@ export default class MonaiLabelClient {
         return response;
       })
       .catch(function (error) {
+        console.error('Request failed or timed out:', error);
         return error;
       })
       .finally(function () {});

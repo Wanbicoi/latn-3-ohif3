@@ -242,13 +242,50 @@ export default class MonaiLabelPanel extends Component {
           console.warn('No viewport available for color setting');
           return;
         }
+        
+        // Additional validation
+        if (!viewport.viewportId) {
+          console.warn('Viewport has no viewportId');
+          return;
+        }
+        
+        // Check if segmentation service is available
+        const { segmentationService } = this.props.servicesManager.services;
+        if (!segmentationService) {
+          console.warn('Segmentation service not available');
+          return;
+        }
+        
+        // Check if segmentation exists
+        try {
+          const segmentation = segmentationService.getSegmentation('1');
+          if (!segmentation) {
+            console.warn('Segmentation with ID "1" not found');
+            return;
+          }
+        } catch (error) {
+          console.warn('Error accessing segmentation:', error);
+          return;
+        }
+        
+        // Set colors for each segment with error handling
         for (const segmentIndex of Object.keys(initialSegs)) {
-          cornerstoneTools.segmentation.config.color.setSegmentIndexColor(
-            viewport.viewportId,
-            '1',
-            initialSegs[segmentIndex].segmentIndex,
-            initialSegs[segmentIndex].color
-          );
+          const segment = initialSegs[segmentIndex];
+          if (!segment || !segment.segmentIndex || !segment.color) {
+            console.warn(`Invalid segment data for index ${segmentIndex}:`, segment);
+            continue;
+          }
+          
+          try {
+            cornerstoneTools.segmentation.config.color.setSegmentIndexColor(
+              viewport.viewportId,
+              '1',
+              segment.segmentIndex,
+              segment.color
+            );
+          } catch (error) {
+            console.warn(`Failed to set color for segment ${segment.segmentIndex}:`, error);
+          }
         }
       }, 1000);
     }
@@ -307,22 +344,55 @@ export default class MonaiLabelPanel extends Component {
     label_class_unknown = false,
     sidx = -1
   ) => {
-    console.log('UpdateView: ', {
+    console.log('🔍 UpdateView Debug: ', {
       model_id,
       labels,
       override,
       label_class_unknown,
       sidx,
+      responseStatus: response.status,
+      responseDataLength: response.data?.length
     });
+    
     const ret = SegmentationReader.parseNrrdData(response.data);
     if (!ret) {
+      console.error('❌ Failed to parse NRRD data');
       throw new Error('Failed to parse NRRD data');
+    }
+    
+    console.log('✅ NRRD parsed successfully:', {
+      imageShape: ret.image?.length,
+      imageType: typeof ret.image,
+      hasImage: !!ret.image,
+      // Add more detailed NRRD header info to debug orientation
+      headerKeys: ret.header ? Object.keys(ret.header) : null,
+      spaceOrigin: ret.header?.['space origin'],
+      spaceDirections: ret.header?.['space directions'],
+      space: ret.header?.space,
+      spaceDimension: ret.header?.['space dimension']
+    });
+
+    // Debug viewport and display set information
+    const { viewport, displaySet } = this.getActiveViewportInfo();
+    if (viewport && displaySet) {
+      console.log('🖥️ Viewport Info:', {
+        viewportId: viewport.viewportId,
+        viewportType: viewport.viewportType,
+        orientation: viewport.orientation,
+        displaySetUID: displaySet.displaySetInstanceUID,
+        seriesUID: displaySet.SeriesInstanceUID,
+        frameOfReference: displaySet.instances?.[0]?.FrameOfReferenceUID,
+        imageOrientationPatient: displaySet.instances?.[0]?.ImageOrientationPatient,
+        imagePositionPatient: displaySet.instances?.[0]?.ImagePositionPatient
+      });
     }
 
     const labelNames = {};
     const currentSegs = currentSegmentsInfo(
       this.props.servicesManager.services.segmentationService
     );
+    console.log('📊 Current segments info:', currentSegs);
+    
     const modelToSegMapping = {};
     modelToSegMapping[0] = 0;
 
@@ -348,13 +418,42 @@ export default class MonaiLabelPanel extends Component {
       tmp_model_seg_idx++;
     }
 
-    console.log('Index Remap', labels, modelToSegMapping);
+    console.log('🗂️ Index Remap', {labels, modelToSegMapping, labelNames});
     const data = new Uint8Array(ret.image);
+    console.log('📦 Data array info:', {
+      length: data.length,
+      uniqueValues: [...new Set(data)].slice(0, 10), // Show first 10 unique values
+      nonZeroCount: data.filter(v => v !== 0).length,
+      // Add spatial analysis - check if labels are clustered in expected regions
+      firstNonZeroIndex: data.findIndex(v => v !== 0),
+      lastNonZeroIndex: data.length - 1 - [...data].reverse().findIndex(v => v !== 0)
+    });
+
+    // TEMPORARY: Remove complex orientation flipping for now to prevent crashes
+    // We'll add simple debugging first to understand the data structure
+    console.log('🔍 NRRD Header Analysis:', {
+      space: ret.header?.space,
+      spaceDirections: ret.header?.['space directions'],
+      sizes: ret.header?.sizes,
+      dataShape: ret.image ? `[${Math.cbrt(ret.image.length).toFixed(0)}³ approx]` : 'unknown'
+    });
 
     const { segmentationService } = this.props.servicesManager.services;
+    console.log('🔧 SegmentationService:', {
+      hasService: !!segmentationService,
+      methodExists: typeof segmentationService.getLabelmapVolume
+    });
+    
     const volumeLoadObject = segmentationService.getLabelmapVolume('1');
+    console.log('💾 Volume load object:', {
+      hasVolume: !!volumeLoadObject,
+      volumeType: typeof volumeLoadObject,
+      volumeKeys: volumeLoadObject ? Object.keys(volumeLoadObject) : null
+    });
+    
     if (volumeLoadObject) {
-      // console.log('Volume Object is In Cache....');
+      console.log('✅ Volume Object is in Cache - Updating segmentation data');
+      
       let convertedData = data;
       for (let i = 0; i < convertedData.length; i++) {
         const midx = convertedData[i];
@@ -367,6 +466,15 @@ export default class MonaiLabelPanel extends Component {
           convertedData[i] = 0;
         }
       }
+
+      console.log('🔄 Data conversion completed:', {
+        originalNonZeros: data.filter(v => v !== 0).length,
+        convertedNonZeros: convertedData.filter(v => v !== 0).length,
+        uniqueConverted: [...new Set(convertedData)].slice(0, 10),
+        // Check if orientation needs to be flipped by analyzing first vs last half distribution
+        firstHalfNonZeros: convertedData.slice(0, convertedData.length/2).filter(v => v !== 0).length,
+        secondHalfNonZeros: convertedData.slice(convertedData.length/2).filter(v => v !== 0).length
+      });
 
       if (override === true) {
         const { segmentationService } = this.props.servicesManager.services;
@@ -404,14 +512,33 @@ export default class MonaiLabelPanel extends Component {
         }
         convertedData = currentSegArray;
       }
+      
       const { voxelManager } = volumeLoadObject;
+      if (!voxelManager) {
+        console.error('❌ No voxelManager found in volumeLoadObject');
+        return;
+      }
+      
+      console.log('📝 Setting scalar data with voxelManager');
       voxelManager?.setCompleteScalarDataArray(convertedData);
+      
+      console.log('📡 Triggering SEGMENTATION_DATA_MODIFIED event');
       triggerEvent(eventTarget, Enums.Events.SEGMENTATION_DATA_MODIFIED, {
         segmentationId: '1',
       });
-      console.log("updated the segmentation's scalar data");
+      console.log("✅ Updated the segmentation's scalar data successfully");
     } else {
-      console.log('TODO:: Volume Object is NOT In Cache....');
+      console.error('❌ Volume Object is NOT In Cache - Cannot update segmentation');
+      console.log('🔧 Attempting to check available segmentations...');
+      
+      const allSegmentations = segmentationService.getSegmentations();
+      console.log('📋 All segmentations:', allSegmentations);
+      
+      if (allSegmentations && allSegmentations.length > 0) {
+        console.log('📦 Available segmentation IDs:', allSegmentations.map(s => s.segmentationId));
+      } else {
+        console.log('🚫 No segmentations found in service');
+      }
     }
   };
 

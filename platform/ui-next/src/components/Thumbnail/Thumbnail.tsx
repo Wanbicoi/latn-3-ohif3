@@ -12,6 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../DropdownMenu';
+import { SeriesDownloadButton } from '../SegmentationTable/SeriesDownloadButton';
+import { toast } from '../Sonner';
 
 /**
  * Display a thumbnail for a display set.
@@ -63,6 +65,194 @@ const Thumbnail = ({
       onClick(e);
     }
     setLastTap(currentTime);
+  };
+
+  // Download handler for SEG series
+  const handleDownloadSeries = async () => {
+    try {
+      // Use production Orthanc URL - no process.env in browser
+      const orthancUrl = 'https://latn-3.eastasia.cloudapp.azure.com/datasource';
+      
+      // Debug: Log all available information
+      console.log('🔍 Debug Info:');
+      console.log('- Display Set Instance UID:', displaySetInstanceUID);
+      console.log('- Description:', description);
+      console.log('- Modality:', modality);
+      console.log('- Series Number:', seriesNumber);
+      console.log('- Orthanc URL:', orthancUrl);
+      
+      // First, test basic connectivity to Orthanc
+      console.log('🔗 Testing Orthanc connectivity...');
+      const systemResponse = await fetch(`${orthancUrl}/system`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (!systemResponse.ok) {
+        throw new Error(`Cannot connect to Orthanc server: HTTP ${systemResponse.status}`);
+      }
+      
+      const systemInfo = await systemResponse.json();
+      console.log('✅ Orthanc system info:', systemInfo);
+      
+      // Get all series and find the matching one
+      console.log('🔍 Finding matching series in Orthanc...');
+      const seriesListResponse = await fetch(`${orthancUrl}/series`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (!seriesListResponse.ok) {
+        throw new Error('Cannot get series list from Orthanc');
+      }
+      
+      const seriesList = await seriesListResponse.json();
+      console.log('📊 Available series count:', seriesList.length);
+      
+      // Find matching series by modality and series number
+      let matchingOrthancSeriesId = null;
+      
+      for (const orthancSeriesId of seriesList) {
+        try {
+          const seriesDetailResponse = await fetch(`${orthancUrl}/series/${orthancSeriesId}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+          });
+          
+          if (seriesDetailResponse.ok) {
+            const seriesDetail = await seriesDetailResponse.json();
+            const orthancModality = seriesDetail.MainDicomTags?.Modality;
+            const orthancSeriesNumber = seriesDetail.MainDicomTags?.SeriesNumber;
+            const orthancDescription = seriesDetail.MainDicomTags?.SeriesDescription;
+            
+            console.log(`📊 Checking series ${orthancSeriesId}:`, {
+              modality: orthancModality,
+              seriesNumber: orthancSeriesNumber,
+              description: orthancDescription,
+            });
+            
+            // Match by modality and series number
+            if (orthancModality === modality && orthancSeriesNumber == seriesNumber) {
+              console.log('🎯 Found matching series!');
+              matchingOrthancSeriesId = orthancSeriesId;
+              break;
+            }
+            
+            // Alternative: Match by description if series number doesn't work
+            if (orthancModality === modality && description && orthancDescription?.includes(description.toString())) {
+              console.log('🎯 Found matching series by description!');
+              matchingOrthancSeriesId = orthancSeriesId;
+              break;
+            }
+          }
+        } catch (detailError) {
+          // Skip if can't get series details
+          continue;
+        }
+      }
+      
+      if (!matchingOrthancSeriesId) {
+        throw new Error(`No matching ${modality} series found with series number ${seriesNumber}. Check if the series exists in Orthanc.`);
+      }
+      
+      console.log('✅ Using Orthanc Series ID:', matchingOrthancSeriesId);
+      
+      // Now try to download using the correct Orthanc series ID
+      let downloadUrl = `${orthancUrl}/series/${matchingOrthancSeriesId}/archive`;
+      
+      let response = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/zip, application/octet-stream, */*',
+        },
+      });
+
+      // If series archive fails, try study archive
+      if (!response.ok && response.status === 404) {
+        console.log('📊 Series archive failed, trying study archive...');
+        
+        // Get the study ID from series info
+        const seriesInfoResponse = await fetch(`${orthancUrl}/series/${matchingOrthancSeriesId}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        });
+        
+        if (seriesInfoResponse.ok) {
+          const seriesInfo = await seriesInfoResponse.json();
+          const studyId = seriesInfo.ParentStudy;
+          
+          if (studyId) {
+            downloadUrl = `${orthancUrl}/studies/${studyId}/archive`;
+            response = await fetch(downloadUrl, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/zip, application/octet-stream, */*',
+              },
+            });
+          }
+        }
+      }
+
+      // If still failing, try create-archive
+      if (!response.ok && response.status === 404) {
+        console.log('📊 Archive endpoints failed, trying create-archive...');
+        
+        response = await fetch(`${orthancUrl}/tools/create-archive`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/zip, application/octet-stream, */*',
+          },
+          body: JSON.stringify({
+            Resources: [matchingOrthancSeriesId],
+            Synchronous: true
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Create download blob
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Generate filename
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const cleanDescription = description?.toString().replace(/[^a-zA-Z0-9]/g, '_') || 'Series';
+      const filename = `${cleanDescription}_${modality}_S${seriesNumber}_${timestamp}.zip`;
+      
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Success notification
+      console.log(`✅ Downloaded: ${filename}`);
+      
+      // Show success toast
+      toast.success('Download Complete', {
+        description: `Successfully downloaded: ${filename}`,
+        duration: 4000,
+      });
+      
+    } catch (error) {
+      console.error('❌ Download failed:', error);
+      // Better error handling
+      const errorMsg = error.message || 'Unknown error occurred';
+      console.error(`Download failed: ${errorMsg}`);
+      
+      // Show error toast  
+      toast.error('Download Failed', {
+        description: `${errorMsg}`,
+        duration: 8000,
+      });
+    }
   };
 
   const renderThumbnailPreset = () => {
@@ -159,6 +349,18 @@ const Thumbnail = ({
                     <Icons.DicomTagBrowser />
                     Tag Browser
                   </DropdownMenuItem>
+                  
+                  {/* Download Series - Only for SEG modality */}
+                  {modality === 'SEG' && (
+                    <DropdownMenuItem
+                      onSelect={handleDownloadSeries}
+                      className="gap-[6px]"
+                    >
+                      <Icons.Download className="h-4 w-4" />
+                      Download Series
+                    </DropdownMenuItem>
+                  )}
+                  
                   {canReject && (
                     <DropdownMenuItem
                       onSelect={() => {
@@ -293,6 +495,18 @@ const Thumbnail = ({
                 <Icons.DicomTagBrowser />
                 Tag Browser
               </DropdownMenuItem>
+              
+              {/* Download Series - Only for SEG modality */}
+              {modality === 'SEG' && (
+                <DropdownMenuItem
+                  onSelect={handleDownloadSeries}
+                  className="gap-[6px]"
+                >
+                  <Icons.Download className="h-4 w-4" />
+                  Download Series
+                </DropdownMenuItem>
+              )}
+              
               {canReject && (
                 <DropdownMenuItem
                   onSelect={() => {

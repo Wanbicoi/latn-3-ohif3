@@ -268,6 +268,13 @@ class SegmentationService extends PubSubService {
     }
   ): Promise<void> {
     const segmentation = this.getSegmentation(segmentationId);
+    
+    // Add null check for segmentation at the root level
+    if (!segmentation) {
+      console.warn(`Segmentation with ID ${segmentationId} not found in addSegmentationRepresentation`);
+      return;
+    }
+    
     const csViewport = this.getAndValidateViewport(viewportId);
     const colorLUTIndex = this._segmentationIdToColorLUTIndexMap.get(segmentationId);
 
@@ -1289,6 +1296,12 @@ class SegmentationService extends PubSubService {
   }
 
   private async handleVolumeViewportCase(csViewport, segmentation, isVolumeSegmentation) {
+    // Add null check for segmentation
+    if (!segmentation) {
+      console.warn('Segmentation object is undefined in handleVolumeViewportCase');
+      return { representationTypeToUse: SegmentationRepresentations.Labelmap, isConverted: false };
+    }
+
     if (csViewport.type === ViewportType.VOLUME_3D) {
       return { representationTypeToUse: SegmentationRepresentations.Surface, isConverted: false };
     } else {
@@ -1368,8 +1381,25 @@ class SegmentationService extends PubSubService {
       return; // Volume Labelmap on Volume Viewport is natively supported
     }
 
+    // Add null checks to prevent errors
+    if (!segmentation) {
+      console.warn('Segmentation object is undefined in handleVolumeViewport');
+      return;
+    }
+
+    if (!segmentation.segmentationId) {
+      console.warn('Segmentation ID is undefined in handleVolumeViewport', segmentation);
+      return;
+    }
+
     const frameOfReferenceUID = viewport.getFrameOfReferenceUID();
     const imageIds = getLabelmapImageIds(segmentation.segmentationId);
+    
+    if (!imageIds || imageIds.length === 0) {
+      console.warn('No image IDs found for segmentation', segmentation.segmentationId);
+      return;
+    }
+    
     const segImage = cache.getImage(imageIds[0]);
 
     if (segImage?.FrameOfReferenceUID === frameOfReferenceUID) {
@@ -1422,8 +1452,25 @@ class SegmentationService extends PubSubService {
     viewportId: string,
     segmentationId: string
   ): Promise<boolean> {
+    // Add null check for segmentation
+    if (!segmentation) {
+      console.warn('Segmentation object is undefined in attemptStackToVolumeConversion');
+      return false;
+    }
+
+    if (!segmentation.segmentationId) {
+      console.warn('Segmentation ID is undefined in attemptStackToVolumeConversion', segmentation);
+      return false;
+    }
+
     const imageIds = getLabelmapImageIds(segmentation.segmentationId);
     const frameOfReferenceUID = viewport.getFrameOfReferenceUID();
+    
+    if (!imageIds || imageIds.length === 0) {
+      console.warn('No image IDs found for segmentation in attemptStackToVolumeConversion', segmentation.segmentationId);
+      return false;
+    }
+    
     const segImage = cache.getImage(imageIds[0]);
 
     if (
@@ -1440,6 +1487,8 @@ class SegmentationService extends PubSubService {
 
       return isConverted;
     }
+    
+    return false;
   }
 
   private addSegmentationToSource(segmentationPublicInput: cstTypes.SegmentationPublicInput) {

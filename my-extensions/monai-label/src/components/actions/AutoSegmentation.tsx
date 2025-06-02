@@ -81,58 +81,106 @@ export default class AutoSegmentation extends BaseTab {
 
     const nid = this.notification.show({
       title: 'MONAI Label - ' + model,
-      message: 'Running Auto-Segmentation...',
+      message: 'Starting segmentation inference... This may take several minutes for large images.',
       type: 'info',
-      duration: 7000,
+      duration: 0,
     });
 
-    const config = this.props.onOptionsConfig();
-    const params =
-      config && config.infer && config.infer[model] ? config.infer[model] : {};
-    const label_names = info.modelLabelNames[model];
-    const label_classes = info.modelLabelIndices[model];
-    if (info.data.models[model].type === 'vista3d') {
-      const bodyComponents = [
-        'kidney',
-        'lung',
-        'bone',
-        'lung tumor',
-        'uterus',
-        'postcava',
-      ];
-      const exclusionValues = bodyComponents.map(
-        (cls_name) => info.modelLabelToIdxMap[model][cls_name]
-      );
-      const filteredLabelClasses = label_classes.filter(
-        (value) => !exclusionValues.includes(value)
-      );
-      params['label_prompt'] = filteredLabelClasses;
-    }
+    const progressUpdates = [
+      { delay: 30000, message: 'Processing... Model inference in progress (30s)' },
+      { delay: 60000, message: 'Still processing... Large images take time (1min)' },
+      { delay: 120000, message: 'Almost there... Processing orientation transforms (2min)' },
+      { delay: 300000, message: 'Final steps... Applying results to viewer (5min)' },
+    ];
 
-    const response = await this.props
-      .client()
-      .infer(model, displaySet.SeriesInstanceUID, params);
-    // console.log(response);
+    const progressTimers = progressUpdates.map(({ delay, message }) => 
+      setTimeout(() => {
+        this.notification.show({
+          title: 'MONAI Label - ' + model,
+          message,
+          type: 'info',
+          duration: 30000,
+        });
+      }, delay)
+    );
 
-    hideNotification(nid, this.notification);
-    if (response.status !== 200) {
+    try {
+      const config = this.props.onOptionsConfig();
+      const params =
+        config && config.infer && config.infer[model] ? config.infer[model] : {};
+      const label_names = info.modelLabelNames[model];
+      const label_classes = info.modelLabelIndices[model];
+      if (info.data.models[model].type === 'vista3d') {
+        const bodyComponents = [
+          'kidney',
+          'lung',
+          'bone',
+          'lung tumor',
+          'uterus',
+          'postcava',
+        ];
+        const exclusionValues = bodyComponents.map(
+          (cls_name) => info.modelLabelToIdxMap[model][cls_name]
+        );
+        const filteredLabelClasses = label_classes.filter(
+          (value) => !exclusionValues.includes(value)
+        );
+        params['label_prompt'] = filteredLabelClasses;
+      }
+
+      console.log('🚀 Starting inference for model:', model, 'with params:', params);
+      const response = await this.props
+        .client()
+        .infer(model, displaySet.SeriesInstanceUID, params);
+
+      progressTimers.forEach(timer => clearTimeout(timer));
+      hideNotification(nid, this.notification);
+
+      if (response.status !== 200) {
+        this.notification.show({
+          title: 'MONAI Label',
+          message: `Failed to Run Auto-Segmentation: ${response.data || response.message}`,
+          type: 'error',
+          duration: 10000,
+        });
+        console.error('Segmentation failed:', response);
+        return;
+      }
+
       this.notification.show({
-        title: 'MONAI Label - ' + model,
-        message: 'Failed to Run Segmentation',
-        type: 'error',
-        duration: 6000,
+        title: 'MONAI Label',
+        message: 'Segmentation completed! Processing results...',
+        type: 'success',
+        duration: 5000,
       });
-      return;
+
+      console.log('✅ Segmentation response received, updating view...');
+      this.props.updateView(response, model, label_names, true);
+      
+    } catch (error) {
+      progressTimers.forEach(timer => clearTimeout(timer));
+      hideNotification(nid, this.notification);
+
+      console.error('💥 Segmentation error:', error);
+      
+      let errorMessage = 'Unknown error occurred';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Request timed out. The model may need more time for large images.';
+      } else if (error.response) {
+        errorMessage = `Server error: ${error.response.status} - ${error.response.data || error.response.statusText}`;
+      } else if (error.request) {
+        errorMessage = 'Network error. Check MONAI server connection.';
+      } else {
+        errorMessage = error.message || 'Segmentation processing failed';
+      }
+
+      this.notification.show({
+        title: 'MONAI Label Error',
+        message: errorMessage,
+        type: 'error',
+        duration: 15000,
+      });
     }
-
-    this.notification.show({
-      title: 'MONAI Label - ' + model,
-      message: 'Running Segmentation - Successful',
-      type: 'success',
-      duration: 4000,
-    });
-
-    this.props.updateView(response, model, label_names);
   };
 
   render() {
