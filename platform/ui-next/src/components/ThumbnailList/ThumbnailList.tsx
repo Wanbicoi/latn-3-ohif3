@@ -11,6 +11,7 @@ const ThumbnailList = ({
   activeDisplaySetInstanceUIDs = [],
   viewPreset,
   onThumbnailContextMenu,
+  servicesManager
 }: withAppTypes) => {
   return (
     <div
@@ -68,6 +69,7 @@ const ThumbnailList = ({
                 canReject={canReject}
                 onReject={onReject}
                 onThumbnailContextMenu={onThumbnailContextMenu}
+                servicesManager={servicesManager}
               />
             );
           }

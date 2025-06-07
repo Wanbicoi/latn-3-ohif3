@@ -62,6 +62,7 @@ const StudyBrowser = ({
               data-cy="thumbnail-list"
               viewPreset={viewPreset}
               onThumbnailContextMenu={onThumbnailContextMenu}
+              servicesManager={servicesManager}
             />
           </React.Fragment>
         );
