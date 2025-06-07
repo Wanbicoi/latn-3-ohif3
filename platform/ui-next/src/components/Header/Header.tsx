@@ -1,13 +1,11 @@
 import React, { ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
-import classNames from 'classnames';
 import {
+  Button,
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuTrigger,
   Icons,
-  Button,
 } from '../';
 
 import NavBar from '../NavBar';
@@ -34,7 +32,6 @@ interface HeaderProps {
 function Header({
   children,
   menuOptions,
-  isReturnEnabled = true,
   onClickReturnButton,
   isSticky = false,
   WhiteLabeling,
@@ -42,14 +39,6 @@ function Header({
   Secondary,
   ...props
 }: HeaderProps): ReactNode {
-  const { t } = useTranslation('Header');
-
-  const onClickReturn = () => {
-    if (isReturnEnabled && onClickReturnButton) {
-      onClickReturnButton();
-    }
-  };
-
   return (
     <NavBar
       isSticky={isSticky}
@@ -58,14 +47,11 @@ function Header({
       <div className="relative h-[48px] items-center">
         <div className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center">
           <div
-            className={classNames(
-              'mr-3 inline-flex items-center',
-              isReturnEnabled && 'cursor-pointer'
-            )}
-            onClick={onClickReturn}
+            className={'mr-3 inline-flex cursor-pointer items-center'}
+            onClick={() => location.assign('/projects')}
             data-cy="return-to-work-list"
           >
-            {isReturnEnabled && <Icons.ChevronPatient className="text-primary-active w-8" />}
+            <Icons.ChevronPatient className="text-primary-active w-8" />
             <div className="ml-1">
               {WhiteLabeling?.createLogoComponentFn?.(React, props) || <Icons.OHIFLogo />}
             </div>
