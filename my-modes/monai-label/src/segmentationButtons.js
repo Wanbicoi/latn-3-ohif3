@@ -15,6 +15,7 @@ const toolbarButtons = [
             toolNames: ['CircularBrush', 'SphereBrush'],
             disabledText: 'Create new segmentation to enable this tool.',
           },
+          commands: 'toggleActiveDisabledToolbar',
           options: [
             {
               name: 'Radius (mm)',
@@ -50,6 +51,7 @@ const toolbarButtons = [
             name: 'evaluate.cornerstone.segmentation',
             toolNames: ['CircularEraser', 'SphereEraser'],
           },
+          commands: 'toggleActiveDisabledToolbar',
           options: [
             {
               name: 'Radius (mm)',
@@ -85,6 +87,7 @@ const toolbarButtons = [
             name: 'evaluate.cornerstone.segmentation',
             toolNames: ['ThresholdCircularBrush', 'ThresholdSphereBrush'],
           },
+          commands: 'toggleActiveDisabledToolbar',
           options: [
             {
               name: 'Radius (mm)',
@@ -162,6 +165,7 @@ const toolbarButtons = [
       ],
     },
   },
+
   {
     id: 'Shapes',
     uiType: 'ohif.radioGroup',

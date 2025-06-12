@@ -93,16 +93,17 @@ export default function CreateReportDialogPrompt(uiDialogService, { extensionMan
           };
           return (
             <>
-              {dataSourcesOpts.length > 1 && window.config?.allowMultiSelectExport && (
+              {dataSourcesOpts.length > 1 && (window as any).config?.allowMultiSelectExport && (
                 <div>
                   <label className="text-[14px] leading-[1.2] text-white">Data Source</label>
                   <Select
+                    id="dataSourceSelect"
                     closeMenuOnSelect={true}
                     className="border-primary-main mt-2 bg-black"
                     options={dataSourcesOpts}
                     placeholder={
                       dataSourcesOpts.find(option => option.value === value.dataSourceName)
-                        .placeHolder
+                        ?.placeHolder || value.dataSourceName
                     }
                     value={value.dataSourceName}
                     onChange={evt => {
@@ -114,6 +115,7 @@ export default function CreateReportDialogPrompt(uiDialogService, { extensionMan
               )}
               <div className="mt-3">
                 <Input
+                  id="reportNameInput"
                   autoFocus
                   label="Enter the report name"
                   labelClassName="text-white text-[14px] leading-[1.2]"
@@ -122,6 +124,9 @@ export default function CreateReportDialogPrompt(uiDialogService, { extensionMan
                   value={value.label}
                   onChange={onChangeHandler}
                   onKeyPress={onKeyPressHandler}
+                  onFocus={() => {}}
+                  onKeyDown={() => {}}
+                  readOnly={false}
                   required
                 />
               </div>

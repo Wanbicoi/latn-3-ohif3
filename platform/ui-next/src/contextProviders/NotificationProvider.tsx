@@ -16,7 +16,7 @@ const NotificationProvider = ({ children, service }) => {
   };
 
   const show = useCallback(options => {
-    const { title, message, duration, position, type, promise } = {
+    const { title, message, duration, position, type, promise, action } = {
       ...DEFAULT_OPTIONS,
       ...options,
     };
@@ -24,22 +24,28 @@ const NotificationProvider = ({ children, service }) => {
     if (promise) {
       return toast.promise(promise, {
         loading: title || 'Loading...',
-        success: (data: unknown) => ({
-          title: title || 'Success',
-          description: typeof message === 'function' ? message(data) : message,
-        }),
-        error: (err: unknown) => ({
-          title: title || 'Error',
-          description: typeof message === 'function' ? message(err) : message,
-        }),
+        success: (data: unknown) => (typeof message === 'function' ? message(data) : message),
+        error: (err: unknown) => (typeof message === 'function' ? message(err) : message),
       });
     }
 
-    return toast[type](title, {
+    const toastOptions: any = {
       duration,
       position,
       description: message,
-    });
+    };
+
+    // Add action button for all notifications if not provided
+    if (!action) {
+      toastOptions.action = {
+        label: 'Close',
+        onClick: (toastId) => toast.dismiss(toastId),
+      };
+    } else {
+      toastOptions.action = action;
+    }
+
+    return toast[type](title, toastOptions);
   }, []);
 
   const hide = useCallback(id => {

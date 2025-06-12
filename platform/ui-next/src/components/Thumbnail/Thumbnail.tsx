@@ -350,8 +350,8 @@ const Thumbnail = ({
                     Tag Browser
                   </DropdownMenuItem>
                   
-                  {/* Download Series - Only for SEG modality */}
-                  {modality === 'SEG' && (
+                                {/* Download Series - Only for SEG modality */}
+              {modality === 'SEG' && (
                     <DropdownMenuItem
                       onSelect={handleDownloadSeries}
                       className="gap-[6px]"
@@ -361,15 +361,18 @@ const Thumbnail = ({
                     </DropdownMenuItem>
                   )}
                   
-                  {canReject && (
+                  {/* Delete SEG Series */}
+                  {modality === 'SEG' && (
                     <DropdownMenuItem
                       onSelect={() => {
-                        onReject();
+                        if (window.confirm(`Are you sure you want to delete this SEG series: ${description}?`)) {
+                          onReject();
+                        }
                       }}
-                      className="gap-[6px]"
+                      className="gap-[6px] text-red-500 hover:text-red-600"
                     >
-                      <Icons.Trash className="h-5 w-5 text-red-500" />
-                      Delete Report
+                      <Icons.Trash className="h-4 w-4" />
+                      Delete
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -507,15 +510,18 @@ const Thumbnail = ({
                 </DropdownMenuItem>
               )}
               
-              {canReject && (
+              {/* Delete SEG Series */}
+              {modality === 'SEG' && (
                 <DropdownMenuItem
                   onSelect={() => {
-                    onReject();
+                    if (window.confirm(`Are you sure you want to delete this SEG series: ${description}?`)) {
+                      onReject();
+                    }
                   }}
-                  className="gap-[6px]"
+                  className="gap-[6px] text-red-500 hover:text-red-600"
                 >
-                  <Icons.Trash className="h-5 w-5 text-red-500" />
-                  Delete Report
+                  <Icons.Trash className="h-4 w-4" />
+                  Delete
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
