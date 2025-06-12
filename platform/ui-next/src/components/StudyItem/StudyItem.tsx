@@ -6,6 +6,7 @@ import { ThumbnailList } from '../ThumbnailList';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../Accordion';
 
 const StudyItem = ({
+  servicesManager,
   date,
   description,
   numInstances,
@@ -56,6 +57,7 @@ const StudyItem = ({
         >
           {isExpanded && displaySets && (
             <ThumbnailList
+              servicesManager={servicesManager}
               thumbnails={displaySets}
               activeDisplaySetInstanceUIDs={activeDisplaySetInstanceUIDs}
               onThumbnailClick={onClickThumbnail}
