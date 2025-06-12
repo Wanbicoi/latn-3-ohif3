@@ -375,9 +375,6 @@ const Thumbnail = ({
 
                   {/* Download Series - Only for SEG modality */}
                   {modality === 'SEG' && (
-                  
-                                {/* Download Series - Only for SEG modality */}
-              {modality === 'SEG' && (
                     <DropdownMenuItem
                       onSelect={handleDownloadSeries}
                       className="gap-[6px]"
