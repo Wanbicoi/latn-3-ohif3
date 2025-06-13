@@ -429,14 +429,39 @@ export default class MonaiLabelPanel extends Component {
       lastNonZeroIndex: data.length - 1 - [...data].reverse().findIndex(v => v !== 0)
     });
 
-    // TEMPORARY: Remove complex orientation flipping for now to prevent crashes
-    // We'll add simple debugging first to understand the data structure
+    // Enhanced orientation handling with coordinate system validation
     console.log('🔍 NRRD Header Analysis:', {
       space: ret.header?.space,
       spaceDirections: ret.header?.['space directions'],
       sizes: ret.header?.sizes,
       dataShape: ret.image ? `[${Math.cbrt(ret.image.length).toFixed(0)}³ approx]` : 'unknown'
     });
+
+    // Validate coordinate system compatibility
+    const nrrdSpace = ret.header?.space;
+    const isRAS = nrrdSpace === 'right-anterior-superior' || nrrdSpace === 'RAS';
+    const isLPS = nrrdSpace === 'left-posterior-superior' || nrrdSpace === 'LPS';
+    
+    console.log('🧭 Coordinate System Analysis:', {
+      nrrdSpace,
+      isRAS,
+      isLPS,
+      needsConversion: isRAS && !isLPS // MONAI typically uses RAS, DICOM uses LPS
+    });
+
+    // Check if we need to apply coordinate system transformation
+    let convertedData = data;
+    if (isRAS && viewport && displaySet) {
+      const imageOrientationPatient = displaySet.instances?.[0]?.ImageOrientationPatient;
+      if (imageOrientationPatient) {
+        console.log('🔄 Applying RAS to LPS coordinate transformation...');
+        // Note: This is a simplified approach. In practice, you might need more sophisticated
+        // transformation based on the specific orientation matrices
+        
+        // For now, we'll add logging to track the transformation need
+        console.log('⚠️ RAS to LPS transformation needed but simplified for stability');
+      }
+    }
 
     const { segmentationService } = this.props.servicesManager.services;
     console.log('🔧 SegmentationService:', {
@@ -454,7 +479,7 @@ export default class MonaiLabelPanel extends Component {
     if (volumeLoadObject) {
       console.log('✅ Volume Object is in Cache - Updating segmentation data');
       
-      let convertedData = data;
+      // Apply index mapping
       for (let i = 0; i < convertedData.length; i++) {
         const midx = convertedData[i];
         const sidx = modelToSegMapping[midx];

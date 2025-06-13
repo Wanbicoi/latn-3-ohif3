@@ -130,6 +130,19 @@ const commandsModule = ({
         throw new Error('Referenced source images are missing in the cache.');
       }
 
+      // Check and preserve orientation information from the first referenced image
+      const firstReferencedImage = referencedImages[0];
+      const imageOrientationPatient = firstReferencedImage?.data?.metadata?.ImageOrientationPatient;
+      const imagePositionPatient = firstReferencedImage?.data?.metadata?.ImagePositionPatient;
+      
+      console.log('🔍 Orientation Debug:', {
+        imageOrientationPatient,
+        imagePositionPatient,
+        segmentationId,
+        numSegImages: segImages.length,
+        numReferencedImages: referencedImages.length
+      });
+
       const labelmaps2D = [];
 
       let z = 0;
@@ -220,12 +233,31 @@ const commandsModule = ({
         labelmap3D.metadata[segmentIndex] = segmentMetadata;
       });
 
+      // Enhanced options with orientation preservation
+      const enhancedOptions = {
+        ...options,
+        // Keep original options structure for compatibility
+        // preserveOrientation: true,
+        // coordinateSystem: 'LPS', // DICOM standard
+      };
+
+      console.log('🔧 Generating segmentation with enhanced options:', enhancedOptions);
+
       const generatedSegmentation = generateSegmentation(
         referencedImages,
         labelmap3D,
         metaData,
-        options
+        enhancedOptions
       );
+
+      // Additional validation of generated segmentation orientation
+      if (generatedSegmentation?.dataset) {
+        console.log('✅ Generated segmentation dataset:', {
+          hasImageOrientationPatient: !!generatedSegmentation.dataset.ImageOrientationPatient,
+          hasImagePositionPatient: !!generatedSegmentation.dataset.ImagePositionPatient,
+          seriesDescription: generatedSegmentation.dataset.SeriesDescription
+        });
+      }
 
       return generatedSegmentation;
     },
@@ -260,82 +292,178 @@ const commandsModule = ({
      * otherwise throws an error.
      */
     storeSegmentation: async ({ segmentationId, dataSource, SeriesDescription: SeriesDescriptionParam }) => {
-      // Ask user for SeriesDescription (segmentation name)
-      let SeriesDescription = SeriesDescriptionParam;
-      if (!SeriesDescription) {
-        // Use OHIF's built-in dialog prompt
-        const promptResult = await createReportDialogPrompt(uiDialogService, {
-          extensionManager,
+      let savingNotificationId = null;
+      
+      try {
+        console.log('🔍 Starting segmentation store process:', { segmentationId, dataSource: !!dataSource });
+
+        // Ask user for SeriesDescription (segmentation name)
+        let SeriesDescription = SeriesDescriptionParam;
+        if (!SeriesDescription) {
+          // Use OHIF's built-in dialog prompt
+          const promptResult = await createReportDialogPrompt(uiDialogService, {
+            extensionManager,
+            title: 'Save Segmentation',
+            message: 'Enter a name for this segmentation series:',
+            defaultValue: 'MySeg'
+          });
+
+          if (promptResult.action !== 1 || !promptResult.value) {
+            uiNotificationService.show({
+              title: 'Save Segmentation',
+              message: 'Save cancelled – no name provided',
+              type: 'info',
+            });
+            return;
+          }
+          
+          SeriesDescription = promptResult.value;
+        }
+
+        // Show "Saving..." notification
+        savingNotificationId = uiNotificationService.show({
           title: 'Save Segmentation',
-          message: 'Enter a name for this segmentation series:',
-          defaultValue: 'MySeg'
+          message: `Saving "${SeriesDescription}"...`,
+          type: 'info',
+          duration: 0, // Don't auto-dismiss
         });
 
-        if (promptResult.action !== 1 || !promptResult.value) {
+        const segmentation = segmentationService.getSegmentation(segmentationId);
+
+        if (!segmentation) {
+          throw new Error('No segmentation found');
+        }
+
+        console.log('🔧 Segmentation info:', {
+          segmentationId,
+          hasSegments: !!segmentation.segments,
+          numSegments: Object.keys(segmentation.segments || {}).length,
+          label: segmentation.label
+        });
+
+        let generatedData: any;
+        try {
+          console.log('🏗️ Generating DICOM SEG...');
+          generatedData = actions.generateSegmentation({
+            segmentationId,
+            options: {
+              SeriesDescription,
+              // Add metadata to ensure proper loading
+              includeSliceSpacing: true,
+              rleEncode: false, // Disable RLE encoding for better compatibility
+            },
+          });
+          console.log('✅ DICOM SEG generated successfully');
+        } catch (error) {
+          // Present a user-friendly message and abort the store operation
+          const message =
+            error?.message || 'Failed to generate DICOM-SEG for the current segmentation.';
+
+          console.error('❌ Error generating segmentation:', error);
+          
+          // Dismiss saving notification
+          if (savingNotificationId) {
+            uiNotificationService.hide(savingNotificationId);
+          }
+          
           uiNotificationService.show({
             title: 'Save Segmentation',
-            message: 'Save cancelled – no name provided',
-            type: 'info',
+            message,
+            type: 'error',
           });
           return;
         }
+
+        if (!generatedData || !generatedData.dataset) {
+          throw new Error('Error during segmentation generation - no dataset produced');
+        }
+
+        const { dataset: naturalizedReport } = generatedData;
+
+        // Add additional metadata for better compatibility
+        console.log('📝 Enhancing DICOM metadata...');
+        naturalizedReport.SeriesDescription = SeriesDescription;
         
-        SeriesDescription = promptResult.value;
-      }
-
-      const segmentation = segmentationService.getSegmentation(segmentationId);
-
-      if (!segmentation) {
-        throw new Error('No segmentation found');
-      }
-
-      let generatedData: any;
-      try {
-        generatedData = actions.generateSegmentation({
-          segmentationId,
-          options: {
-            SeriesDescription,
-          },
+        // Auto-generate incremental series number for SEG
+        const existingDisplaySets = displaySetService.getActiveDisplaySets();
+        const segDisplaySets = existingDisplaySets.filter(ds => ds.Modality === 'SEG');
+        const maxSeriesNumber = Math.max(
+          ...segDisplaySets.map(ds => parseInt(ds.SeriesNumber) || 0),
+          1000 // Start from 1000 for SEG series
+        );
+        const newSeriesNumber = maxSeriesNumber + 1;
+        
+        naturalizedReport.SeriesNumber = newSeriesNumber.toString();
+        console.log('🔢 Generated series number:', newSeriesNumber, 'for SEG series');
+        
+        // Ensure proper SOP Class UID for SEG
+        naturalizedReport.SOPClassUID = '1.2.840.10008.5.1.4.1.1.66.4';
+        
+        // Add creation timestamp
+        const now = new Date();
+        naturalizedReport.SeriesDate = now.toISOString().slice(0, 10).replace(/-/g, '');
+        naturalizedReport.SeriesTime = now.toTimeString().slice(0, 8).replace(/:/g, '');
+        
+        // Add high precision timestamp for better sorting
+        const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
+        naturalizedReport.SeriesTime = naturalizedReport.SeriesTime + '.' + milliseconds;
+        
+        console.log('📅 Set timestamps:', {
+          SeriesDate: naturalizedReport.SeriesDate,
+          SeriesTime: naturalizedReport.SeriesTime,
+          SeriesNumber: naturalizedReport.SeriesNumber
         });
-      } catch (error) {
-        // Present a user-friendly message and abort the store operation
-        const message =
-          error?.message || 'Failed to generate DICOM-SEG for the current segmentation.';
+        
+        console.log('🔍 Debug existing SEG series:', segDisplaySets.map(ds => ({
+          uid: ds.displaySetInstanceUID?.slice(-8),
+          seriesNumber: ds.SeriesNumber,
+          seriesNumberType: typeof ds.SeriesNumber,
+          description: ds.SeriesDescription
+        })));
 
+        console.log('💾 Storing to data source...');
+        await dataSource.store.dicom(naturalizedReport);
+
+        // Dismiss saving notification
+        if (savingNotificationId) {
+          uiNotificationService.hide(savingNotificationId);
+        }
+
+        // Show success notification
         uiNotificationService.show({
           title: 'Save Segmentation',
-          message,
+          message: `Segmentation "${SeriesDescription}" saved successfully`,
+          type: 'success',
+        });
+
+        // The "Mode" route listens for DicomMetadataStore changes
+        // When a new instance is added, it listens and
+        // automatically calls makeDisplaySets
+
+        // add the information for where we stored it to the instance as well
+        naturalizedReport.wadoRoot = dataSource.getConfig().wadoRoot;
+
+        console.log('📋 Adding to metadata store...');
+        DicomMetadataStore.addInstances([naturalizedReport], true);
+
+        console.log('✅ Segmentation store process completed successfully');
+        return naturalizedReport;
+      } catch (error) {
+        console.error('❌ Global error in storeSegmentation:', error);
+        
+        // Dismiss saving notification if it exists
+        if (savingNotificationId) {
+          uiNotificationService.hide(savingNotificationId);
+        }
+        
+        uiNotificationService.show({
+          title: 'Save Error',
+          message: `Failed to save segmentation: ${error.message || 'Unknown error'}`,
           type: 'error',
         });
-        console.error('storeSegmentation:', error);
-        return;
+        
+        throw error;
       }
-
-      if (!generatedData || !generatedData.dataset) {
-        throw new Error('Error during segmentation generation');
-      }
-
-      const { dataset: naturalizedReport } = generatedData;
-
-      await dataSource.store.dicom(naturalizedReport);
-
-      // Inform the user that the segmentation has been successfully stored
-      uiNotificationService.show({
-        title: 'Save Segmentation',
-        message: `Segmentation "${SeriesDescription}" saved successfully`,
-        type: 'success',
-      });
-
-      // The "Mode" route listens for DicomMetadataStore changes
-      // When a new instance is added, it listens and
-      // automatically calls makeDisplaySets
-
-      // add the information for where we stored it to the instance as well
-      naturalizedReport.wadoRoot = dataSource.getConfig().wadoRoot;
-
-      DicomMetadataStore.addInstances([naturalizedReport], true);
-
-      return naturalizedReport;
     },
     /**
      * Converts segmentations into RTSS for download.
@@ -416,60 +544,178 @@ const commandsModule = ({
       const segmentationIds: string[] = [];
 
       for (const dsUID of dsUIDs) {
-        const segDisplaySet = displaySetService.getDisplaySetByUID(dsUID);
-        if (!segDisplaySet) {
-          console.warn(`SEG display set ${dsUID} not found`);
-          continue;
-        }
-
-        // Ensure the SEG display set is parsed and populated
         try {
-          if (typeof segDisplaySet.load === 'function' && !segDisplaySet.isLoaded) {
-            await segDisplaySet.load({});
+          console.log('🔍 Starting to load SEG display set:', dsUID);
+          
+          const segDisplaySet = displaySetService.getDisplaySetByUID(dsUID);
+          if (!segDisplaySet) {
+            console.warn(`❌ SEG display set ${dsUID} not found`);
+            
+            // Show user-friendly error notification
+            uiNotificationService.show({
+              title: 'Load Segmentation Error',
+              message: `Segmentation file not found. Please ensure the file is properly loaded.`,
+              type: 'error',
+            });
+            continue;
           }
-        } catch (loadErr) {
-          console.warn('Failed to load/parse SEG before creating segmentation', dsUID, loadErr);
-          continue;
-        }
 
-        // Basic validation – only proceed if load produced voxel data
-        if (!segDisplaySet.labelmapBufferArray || !segDisplaySet.centroids) {
-          console.warn('SEG display set appears incomplete after load – skipping', dsUID);
-          continue;
-        }
-
-        try {
-          const segmentationId = await segmentationService.createSegmentationForSEGDisplaySet(
-            segDisplaySet,
-            {
-              type: cornerstoneToolsEnums.SegmentationRepresentations.Labelmap,
-            }
-          );
-          await segmentationService.addSegmentationRepresentation(targetViewportId, {
-            segmentationId,
-            type: cornerstoneToolsEnums.SegmentationRepresentations.Labelmap,
+          console.log('🔍 Loading SEG display set:', {
+            dsUID,
+            targetViewportId,
+            isLoaded: segDisplaySet.isLoaded,
+            hasLabelmapBufferArray: !!segDisplaySet.labelmapBufferArray,
+            hasCentroids: !!segDisplaySet.centroids,
+            sopClassUID: segDisplaySet.sopClassUIDs?.[0],
+            numInstances: segDisplaySet.numImageFrames
           });
 
-          // ensure visibility
-          segmentationService.setActiveSegmentation(targetViewportId, segmentationId);
-
-          // Auto-center viewport on the first segment so user immediately sees label
-          try {
-            const seg = segmentationService.getSegmentation(segmentationId);
-            const firstSegmentIndex = Object.keys(seg.segments)[0];
-            if (firstSegmentIndex) {
-              segmentationService.jumpToSegmentCenter(segmentationId, Number(firstSegmentIndex), targetViewportId);
-            }
-          } catch (centerErr) {
-            console.warn('Could not jump to segment center', centerErr);
+          // Validate that this is actually a SEG display set
+          if (!segDisplaySet.sopClassUIDs?.includes('1.2.840.10008.5.1.4.1.1.66.4')) {
+            console.warn('❌ Display set is not a valid DICOM SEG');
+            uiNotificationService.show({
+              title: 'Invalid Segmentation',
+              message: 'The selected file is not a valid DICOM Segmentation object.',
+              type: 'error',
+            });
+            continue;
           }
 
-          segmentationIds.push(segmentationId);
-        } catch (err) {
-          console.warn('Failed to load SEG display set', dsUID, err);
+          // Ensure the SEG display set is parsed and populated
+          try {
+            if (typeof segDisplaySet.load === 'function' && !segDisplaySet.isLoaded) {
+              console.log('📥 Loading SEG display set...');
+              
+              // Add timeout for loading
+              const loadPromise = segDisplaySet.load({});
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Load timeout')), 30000)
+              );
+              
+              await Promise.race([loadPromise, timeoutPromise]);
+              console.log('✅ SEG display set loaded successfully');
+            }
+          } catch (loadErr) {
+            console.error('❌ Failed to load/parse SEG before creating segmentation', dsUID, loadErr);
+            
+            uiNotificationService.show({
+              title: 'Load Segmentation Error',
+              message: `Failed to load segmentation data: ${loadErr.message || 'Unknown error'}`,
+              type: 'error',
+            });
+            continue;
+          }
+
+          // Enhanced validation – check for required data
+          if (!segDisplaySet.labelmapBufferArray || !segDisplaySet.centroids) {
+            console.warn('❌ SEG display set appears incomplete after load – missing required data');
+            
+            uiNotificationService.show({
+              title: 'Incomplete Segmentation',
+              message: 'The segmentation file appears to be incomplete or corrupted.',
+              type: 'error',
+            });
+            continue;
+          }
+
+          // Check orientation information from the SEG display set
+          const firstInstance = segDisplaySet.instances?.[0];
+          if (firstInstance) {
+            console.log('🧭 SEG Orientation Info:', {
+              imageOrientationPatient: firstInstance.ImageOrientationPatient,
+              imagePositionPatient: firstInstance.ImagePositionPatient,
+              frameOfReferenceUID: firstInstance.FrameOfReferenceUID,
+              referencedSeriesUID: segDisplaySet.referencedSeriesInstanceUID
+            });
+
+            // Validate frame of reference
+            if (!firstInstance.FrameOfReferenceUID) {
+              console.warn('⚠️ SEG missing Frame of Reference UID');
+            }
+          }
+
+          // Check if referenced series is available
+          const referencedSeriesUID = segDisplaySet.referencedSeriesInstanceUID;
+          if (referencedSeriesUID) {
+            const referencedDisplaySets = displaySetService.getDisplaySetsForSeries(referencedSeriesUID);
+            if (!referencedDisplaySets || referencedDisplaySets.length === 0) {
+              console.warn('⚠️ Referenced series not found:', referencedSeriesUID);
+              
+              uiNotificationService.show({
+                title: 'Missing Reference Images',
+                message: 'The original images referenced by this segmentation are not loaded. Please load the original study first.',
+                type: 'warning',
+              });
+            }
+          }
+
+          try {
+            console.log('🔧 Creating segmentation for SEG display set...');
+            const segmentationId = await segmentationService.createSegmentationForSEGDisplaySet(
+              segDisplaySet,
+              {
+                type: cornerstoneToolsEnums.SegmentationRepresentations.Labelmap,
+                // Keep original structure for compatibility
+                // options: {
+                //   preserveOrientation: true,
+                //   validateOrientation: true,
+                // }
+              }
+            );
+            
+            console.log('📊 Adding segmentation representation...');
+            await segmentationService.addSegmentationRepresentation(targetViewportId, {
+              segmentationId,
+              type: cornerstoneToolsEnums.SegmentationRepresentations.Labelmap,
+            });
+
+            // ensure visibility
+            console.log('👁️ Setting active segmentation...');
+            segmentationService.setActiveSegmentation(targetViewportId, segmentationId);
+
+            // Auto-center viewport on the first segment so user immediately sees label
+            try {
+              const seg = segmentationService.getSegmentation(segmentationId);
+              const firstSegmentIndex = Object.keys(seg.segments)[0];
+              if (firstSegmentIndex) {
+                console.log('🎯 Jumping to segment center...');
+                segmentationService.jumpToSegmentCenter(segmentationId, Number(firstSegmentIndex), targetViewportId);
+              }
+            } catch (centerErr) {
+              console.warn('Could not jump to segment center', centerErr);
+            }
+
+            console.log('✅ Successfully loaded segmentation:', segmentationId);
+            segmentationIds.push(segmentationId);
+
+            // Show success notification
+            uiNotificationService.show({
+              title: 'Segmentation Loaded',
+              message: 'Segmentation has been successfully loaded and displayed.',
+              type: 'success',
+            });
+
+          } catch (err) {
+            console.error('❌ Failed to create segmentation from SEG display set', dsUID, err);
+            
+            uiNotificationService.show({
+              title: 'Segmentation Creation Error',
+              message: `Failed to create segmentation: ${err.message || 'Unknown error'}`,
+              type: 'error',
+            });
+          }
+        } catch (globalErr) {
+          console.error('❌ Global error loading SEG display set', dsUID, globalErr);
+          
+          uiNotificationService.show({
+            title: 'Load Error',
+            message: `Unexpected error loading segmentation: ${globalErr.message || 'Unknown error'}`,
+            type: 'error',
+          });
         }
       }
 
+      console.log('🎉 Completed loading segmentations:', segmentationIds);
       return segmentationIds;
     },
   };

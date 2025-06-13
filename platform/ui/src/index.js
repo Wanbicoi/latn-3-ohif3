@@ -133,6 +133,7 @@ export {
   InvestigationalUseDialog,
   LayoutPreset,
   StudyBrowserSort,
+  StudyBrowserSortWithSearch,
 } from './components';
 
 export { useSessionStorage } from './hooks';

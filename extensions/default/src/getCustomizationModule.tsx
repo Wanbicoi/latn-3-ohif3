@@ -169,17 +169,142 @@ export default function getCustomizationModule({ servicesManager, extensionManag
           id: 'studyBrowser.sortFunctions',
           values: [
             {
-              label: 'Series Number',
+              label: 'Alphabetical',
               sortFunction: (a, b) => {
-                return a?.SeriesNumber - b?.SeriesNumber;
+                // Sort by description/name alphabetically
+                const nameA = (a?.SeriesDescription || a?.description || '').toLowerCase();
+                const nameB = (b?.SeriesDescription || b?.description || '').toLowerCase();
+                
+                console.log('🔤 Alphabetical sort:', {
+                  a: { uid: a?.displaySetInstanceUID?.slice(-8), name: nameA },
+                  b: { uid: b?.displaySetInstanceUID?.slice(-8), name: nameB }
+                });
+                
+                // Primary sort: alphabetical by name
+                if (nameA !== nameB) {
+                  return nameA.localeCompare(nameB);
+                }
+                
+                // Secondary sort: by modality (SEG first, then others)
+                const modalityA = a?.Modality || a?.modality || '';
+                const modalityB = b?.Modality || b?.modality || '';
+                
+                if (modalityA === 'SEG' && modalityB !== 'SEG') return -1;
+                if (modalityB === 'SEG' && modalityA !== 'SEG') return 1;
+                
+                // Tertiary sort: by series number for same names
+                const seriesA = parseInt(a?.SeriesNumber || a?.seriesNumber || 0);
+                const seriesB = parseInt(b?.SeriesNumber || b?.seriesNumber || 0);
+                
+                return seriesA - seriesB;
               },
             },
             {
-              label: 'Series Date',
+              label: 'Last Updated',
               sortFunction: (a, b) => {
-                const dateA = new Date(formatDate(a?.SeriesDate));
-                const dateB = new Date(formatDate(b?.SeriesDate));
-                return dateB.getTime() - dateA.getTime();
+                // Debug: Log all available fields for SEG items
+                console.log('🔍 Debug item A fields:', {
+                  uid: a?.displaySetInstanceUID?.slice(-8),
+                  allFields: Object.keys(a || {}),
+                  timestamps: {
+                    SeriesDate: a?.SeriesDate,
+                    SeriesTime: a?.SeriesTime,
+                    StudyDate: a?.StudyDate,
+                    StudyTime: a?.StudyTime,
+                    InstanceCreationDate: a?.InstanceCreationDate,
+                    InstanceCreationTime: a?.InstanceCreationTime,
+                    ContentDate: a?.ContentDate,
+                    ContentTime: a?.ContentTime,
+                    AcquisitionDate: a?.AcquisitionDate,
+                    AcquisitionTime: a?.AcquisitionTime
+                  }
+                });
+                
+                console.log('🔍 Debug item B fields:', {
+                  uid: b?.displaySetInstanceUID?.slice(-8),
+                  allFields: Object.keys(b || {}),
+                  timestamps: {
+                    SeriesDate: b?.SeriesDate,
+                    SeriesTime: b?.SeriesTime,
+                    StudyDate: b?.StudyDate,
+                    StudyTime: b?.StudyTime,
+                    InstanceCreationDate: b?.InstanceCreationDate,
+                    InstanceCreationTime: b?.InstanceCreationTime,
+                    ContentDate: b?.ContentDate,
+                    ContentTime: b?.ContentTime,
+                    AcquisitionDate: b?.AcquisitionDate,
+                    AcquisitionTime: b?.AcquisitionTime
+                  }
+                });
+                
+                // Get various timestamp fields for comparison
+                const getTimestamp = (item) => {
+                  // Try multiple timestamp fields in order of preference
+                  const timestamps = [
+                    item?.SeriesTime,
+                    item?.seriesTime,
+                    item?.StudyTime,
+                    item?.studyTime,
+                    item?.InstanceCreationTime,
+                    item?.instanceCreationTime,
+                    item?.ContentTime,
+                    item?.contentTime,
+                    item?.AcquisitionTime,
+                    item?.acquisitionTime
+                  ].filter(Boolean);
+                  
+                  // If we have SeriesDate + SeriesTime, combine them
+                  const seriesDate = item?.SeriesDate || item?.seriesDate;
+                  const seriesTime = item?.SeriesTime || item?.seriesTime;
+                  
+                  if (seriesDate && seriesTime) {
+                    // Convert DICOM date/time to comparable format
+                    const dateStr = seriesDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+                    const timeStr = seriesTime.replace(/(\d{2})(\d{2})(\d{2}).*/, '$1:$2:$3');
+                    const fullDateTime = `${dateStr}T${timeStr}`;
+                    console.log('📅 Parsed datetime:', fullDateTime);
+                    return new Date(fullDateTime).getTime();
+                  }
+                  
+                  // Fallback to any available timestamp
+                  if (timestamps.length > 0) {
+                    const timeStr = timestamps[0].replace(/(\d{2})(\d{2})(\d{2}).*/, '$1:$2:$3');
+                    const fallbackDateTime = `1970-01-01T${timeStr}`;
+                    console.log('⏰ Fallback datetime:', fallbackDateTime);
+                    return new Date(fallbackDateTime).getTime();
+                  }
+                  
+                  // If no timestamp, use series number as proxy for creation order
+                  const seriesNumber = parseInt(item?.SeriesNumber || item?.seriesNumber || 0);
+                  if (seriesNumber > 0) {
+                    console.log('🔢 Using series number as timestamp proxy:', seriesNumber);
+                    return seriesNumber; // Higher series number = more recent
+                  }
+                  
+                  console.log('❌ No timestamp found, using current time');
+                  return Date.now();
+                };
+                
+                const timestampA = getTimestamp(a);
+                const timestampB = getTimestamp(b);
+                
+                console.log('⏰ Final comparison:', {
+                  a: { 
+                    uid: a?.displaySetInstanceUID?.slice(-8), 
+                    desc: a?.SeriesDescription,
+                    timestamp: timestampA,
+                    readable: new Date(timestampA).toISOString()
+                  },
+                  b: { 
+                    uid: b?.displaySetInstanceUID?.slice(-8), 
+                    desc: b?.SeriesDescription,
+                    timestamp: timestampB,
+                    readable: new Date(timestampB).toISOString()
+                  }
+                });
+                
+                // Sort by most recent first (descending order)
+                return timestampB - timestampA;
               },
             },
           ],

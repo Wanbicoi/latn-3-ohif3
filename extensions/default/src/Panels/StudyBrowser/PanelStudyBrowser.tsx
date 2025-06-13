@@ -348,7 +348,17 @@ function _mapDisplaySets(displaySets, thumbnailImageSrcMap, displaySetService, u
   const thumbnailDisplaySets = [];
   const thumbnailNoImageDisplaySets = [];
 
-  displaySets
+  // Ensure displaySets is an array
+  const safeDisplaySets = Array.isArray(displaySets) ? displaySets : [];
+  
+  console.log('🔍 _mapDisplaySets called with:', {
+    displaySetsType: typeof displaySets,
+    isArray: Array.isArray(displaySets),
+    length: safeDisplaySets.length,
+    displaySets: safeDisplaySets
+  });
+
+  safeDisplaySets
     .filter(ds => !ds.excludeFromThumbnailBrowser)
     .forEach(ds => {
       const imageSrc = thumbnailImageSrcMap[ds.displaySetInstanceUID];

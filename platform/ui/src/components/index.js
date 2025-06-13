@@ -95,7 +95,7 @@ import InvestigationalUseDialog from './InvestigationalUseDialog';
 import MeasurementItem from './MeasurementTable/MeasurementItem';
 import LayoutPreset from './LayoutPreset';
 import ActionButtons from './ActionButtons';
-import StudyBrowserSort from './StudyBrowserSort';
+import { StudyBrowserSort, StudyBrowserSortWithSearch } from './StudyBrowserSort';
 
 export {
   ActionButtons,
@@ -200,4 +200,5 @@ export {
   Toolbox,
   InvestigationalUseDialog,
   StudyBrowserSort,
+  StudyBrowserSortWithSearch,
 };

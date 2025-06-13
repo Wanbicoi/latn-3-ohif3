@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 import { StudyItem } from '../StudyItem';
@@ -33,6 +33,23 @@ const StudyBrowser = ({
   viewPresets,
   onThumbnailContextMenu,
 }: withAppTypes) => {
+  const [searchFilter, setSearchFilter] = useState('');
+
+  // Listen for search filter changes from StudyBrowserSort
+  useEffect(() => {
+    const handleSearchFilter = (event: any) => {
+      if (event.detail && event.detail.searchTerm !== undefined) {
+        setSearchFilter(event.detail.searchTerm);
+        console.log('📡 StudyBrowser received search filter:', event.detail.searchTerm);
+      }
+    };
+
+    window.addEventListener('ohif-search-filter-changed', handleSearchFilter);
+    return () => {
+      window.removeEventListener('ohif-search-filter-changed', handleSearchFilter);
+    };
+  }, []);
+
   const getTabContent = () => {
     const tabData = tabs.find(tab => tab.name === activeTabName);
     const viewPreset = viewPresets
@@ -41,6 +58,68 @@ const StudyBrowser = ({
     return tabData.studies.map(
       ({ studyInstanceUid, date, description, numInstances, modalities, displaySets }) => {
         const isExpanded = expandedStudyInstanceUIDs.includes(studyInstanceUid);
+        
+        // Filter displaySets based on search term
+        const filteredDisplaySets = displaySets.filter((ds: any) => {
+          // Check multiple possible field names for modality
+          const modality = ds.Modality || ds.modality || ds.modalityDisplayName || '';
+          
+          // Always show non-SEG items (CT, MR, etc.)
+          if (modality !== 'SEG' && !ds.description?.includes('draft') && !ds.description?.includes('te')) {
+            return true;
+          }
+          
+          // If no search term, show all items
+          if (!searchFilter.trim()) return true;
+          
+          // For SEG-like items, filter by search term using multiple possible description fields
+          const description = ds.SeriesDescription || ds.description || ds.displaySetDescription || ds.seriesDescription || '';
+          return description.toLowerCase().includes(searchFilter.toLowerCase());
+        });
+        
+        console.log('📋 StudyBrowser RAW DATA DEBUG:', {
+          studyId: studyInstanceUid,
+          searchFilter,
+          totalDisplaySets: displaySets.length,
+          filteredDisplaySets: filteredDisplaySets.length
+        });
+        
+        // Log each displaySet separately for better visibility
+        displaySets.forEach((ds: any, index: number) => {
+          console.log(`📋 DisplaySet ${index}:`, {
+            displaySetInstanceUID: ds.displaySetInstanceUID,
+            Modality: ds.Modality,
+            modality: ds.modality,
+            SeriesDescription: ds.SeriesDescription,
+            description: ds.description,
+            seriesDescription: ds.seriesDescription,
+            displaySetDescription: ds.displaySetDescription,
+            seriesNumber: ds.seriesNumber,
+            seriesDate: ds.seriesDate,
+            numInstances: ds.numInstances,
+            allKeys: Object.keys(ds).slice(0, 15) // More keys to see
+          });
+        });
+        
+        // Find SEG-like items using description patterns
+        const segLikeItems = displaySets.filter((ds: any) => {
+          const desc = (ds.description || ds.SeriesDescription || '').toLowerCase();
+          return desc.includes('draft') || desc.includes('te') || desc.includes('seg');
+        });
+        
+        console.log('📋 SEG-like Items found:', segLikeItems.length, segLikeItems.map(ds => ({
+          description: ds.description || ds.SeriesDescription,
+          modality: ds.Modality || ds.modality,
+          matchesSearch: !searchFilter.trim() || (ds.description || ds.SeriesDescription || '').toLowerCase().includes(searchFilter.toLowerCase())
+        })));
+        
+        const segItems = displaySets.filter((ds: any) => ds.Modality === 'SEG');
+        console.log('📋 SEG Items found:', segItems.length, segItems.map(ds => ({
+          description: ds.SeriesDescription,
+          modality: ds.Modality,
+          matchesSearch: !searchFilter.trim() || (ds.SeriesDescription || '').toLowerCase().includes(searchFilter.toLowerCase())
+        })));
+        
         return (
           <React.Fragment key={studyInstanceUid}>
             <StudyItem
@@ -48,9 +127,9 @@ const StudyBrowser = ({
               description={description}
               numInstances={numInstances}
               isExpanded={isExpanded}
-              displaySets={displaySets}
+              displaySets={filteredDisplaySets} // Use filtered displaySets
               modalities={modalities}
-              trackedSeries={getTrackedSeries(displaySets)}
+              trackedSeries={getTrackedSeries(filteredDisplaySets)} // Update tracked series count
               isActive={isExpanded}
               onClick={() => {
                 onClickStudy(studyInstanceUid);
@@ -76,15 +155,8 @@ const StudyBrowser = ({
       data-cy={'studyBrowser-panel'}
     >
       {showSettings && (
-        <div className="w-100 bg-bkg-low flex h-[48px] items-center justify-center gap-[10px] px-[8px] py-[10px]">
-          <>
-            <StudyBrowserViewOptions
-              tabs={tabs}
-              onSelectTab={onClickTab}
-              activeTabName={activeTabName}
-            />
-            <StudyBrowserSort servicesManager={servicesManager} />
-          </>
+        <div className="w-full bg-bkg-low flex flex-col gap-2 px-3 py-3">
+          <StudyBrowserSort servicesManager={servicesManager} />
         </div>
       )}
       {getTabContent()}
@@ -144,3 +216,4 @@ StudyBrowser.propTypes = {
 };
 
 export { StudyBrowser };
+

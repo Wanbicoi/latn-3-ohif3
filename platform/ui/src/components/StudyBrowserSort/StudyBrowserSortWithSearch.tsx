@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Icons } from '@ohif/ui-next';
+import Icon from '../Icon';
 
-export function StudyBrowserSort({ servicesManager }: any) {
+export default function StudyBrowserSortWithSearch({ servicesManager }: any) {
   const { customizationService, displaySetService } = servicesManager.services;
   const sortFunctionsData = customizationService.get('studyBrowser.sortFunctions');
   const sortFunctions = Array.isArray(sortFunctionsData?.values) ? sortFunctionsData.values : [];
@@ -10,7 +10,6 @@ export function StudyBrowserSort({ servicesManager }: any) {
   const [sortDirection, setSortDirection] = useState('ascending');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filterUpdateKey, setFilterUpdateKey] = useState(0); // Force re-render key
 
   // Get all available segmentation names for suggestions
   const segmentationNames = useMemo(() => {
@@ -22,6 +21,7 @@ export function StudyBrowserSort({ servicesManager }: any) {
       .filter((name: string, index: number, arr: string[]) => arr.indexOf(name) === index) // Remove duplicates
       .sort();
     
+    console.log('🔍 Available segmentation names:', segNames);
     return segNames;
   }, [displaySetService]);
 
@@ -49,35 +49,29 @@ export function StudyBrowserSort({ servicesManager }: any) {
     const value = event.target.value;
     setSearchTerm(value);
     setShowSuggestions(value.length > 0);
-    
-    // Apply real-time filtering
-    applySearchFilter(value);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setSearchTerm(suggestion);
     setShowSuggestions(false);
-    applySearchFilter(suggestion);
+    
+    // Filter display sets to show only matching segmentations
+    const displaySets = displaySetService.getActiveDisplaySets();
+    const filteredDisplaySets = displaySets.filter((ds: any) => {
+      if (ds.Modality !== 'SEG') return true; // Keep non-SEG items
+      const name = (ds.SeriesDescription || ds.description || '').toLowerCase();
+      return name.includes(suggestion.toLowerCase());
+    });
+    
+    console.log('🔍 Filtered to:', filteredDisplaySets.length, 'items for search:', suggestion);
+    // Note: This would need displaySetService method to filter, for now just log
   };
 
   const clearSearch = () => {
     setSearchTerm('');
     setShowSuggestions(false);
-    applySearchFilter(''); // Show all SEGs
-  };
-
-  // Apply search filter by dispatching event to StudyBrowser
-  const applySearchFilter = (searchValue: string) => {
-    // Dispatch custom event for StudyBrowser to listen
-    const event = new CustomEvent('ohif-search-filter-changed', {
-      detail: { searchTerm: searchValue }
-    });
-    window.dispatchEvent(event);
-    
-    console.log('🔍 Search filter event dispatched:', {
-      searchTerm: searchValue,
-      eventType: 'ohif-search-filter-changed'
-    });
+    // Reset to show all display sets
+    console.log('🔍 Cleared search filter');
   };
 
   useEffect(() => {
@@ -111,59 +105,55 @@ export function StudyBrowserSort({ servicesManager }: any) {
   }, [displaySetService, selectedSort, sortDirection]);
 
   if (sortFunctions.length === 0) {
-    return null;
+    return <div>No sort functions available</div>;
   }
 
   return (
-    <div className="flex flex-col gap-2 w-full" key={`search-filter-${filterUpdateKey}`}>
-      {/* Search Box - Compact */}
+    <div className="flex flex-col gap-2">
+      {/* Search Filter */}
       <div className="relative">
-        <input
-          type="text"
-          placeholder="🔍 Search segmentations..."
-          value={searchTerm}
-          onChange={handleSearchChange}
-          onFocus={() => setShowSuggestions(searchTerm.length > 0)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-          className="h-[32px] w-full rounded border border-gray-600 bg-gray-900 px-3 pr-8 text-sm text-white placeholder-gray-400 transition-all duration-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-        />
+        <div className="flex gap-1">
+          <input
+            type="text"
+            placeholder="Search segmentations..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            onFocus={() => setShowSuggestions(searchTerm.length > 0)}
+            className="border-inputfield-main focus:border-inputfield-main w-full rounded border bg-black py-2 px-3 text-sm leading-tight text-white shadow transition duration-300 focus:outline-none"
+          />
+          {searchTerm && (
+            <button
+              onClick={clearSearch}
+              className="border-inputfield-main flex items-center justify-center rounded border bg-black px-2"
+            >
+              <Icon name="close" className="w-3 h-3 text-white" />
+            </button>
+          )}
+        </div>
         
-        {/* Clear button - Smaller */}
-        {searchTerm && (
-          <button
-            onClick={clearSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:text-white text-xs"
-            title="Clear search"
-          >
-            ✕
-          </button>
-        )}
-        
-        {/* Suggestions Dropdown - Compact */}
+        {/* Suggestions Dropdown */}
         {showSuggestions && filteredSuggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-32 overflow-y-auto rounded border border-gray-600 bg-gray-900 shadow-lg">
+          <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded border border-inputfield-main bg-black shadow-lg">
             {filteredSuggestions.map((suggestion: string, index: number) => (
               <div
                 key={index}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="cursor-pointer px-3 py-2 text-sm text-white transition-colors hover:bg-blue-600/20 flex items-center gap-2"
+                className="cursor-pointer px-3 py-2 text-sm text-white hover:bg-primary-main hover:bg-opacity-20 transition-colors"
               >
-                <span className="text-blue-400 text-xs">🔍</span>
-                <span>{suggestion}</span>
+                {suggestion}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Sort Controls - Inline and compact */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-400 whitespace-nowrap">Sort:</span>
+      {/* Sort Controls */}
+      <div className="flex gap-2">
         <select
           onChange={handleSortChange}
           value={selectedSort.label}
           onClick={e => e.stopPropagation()}
-          className="h-[28px] flex-1 rounded border border-gray-600 bg-gray-900 px-2 text-xs text-white transition-all duration-200 focus:border-blue-500 focus:outline-none"
+          className="border-inputfield-main focus:border-inputfield-main w-full appearance-none rounded border bg-black py-2 px-3 text-sm leading-tight text-white shadow transition duration-300 focus:outline-none"
         >
           {sortFunctions.map((sort: any) => (
             <option
@@ -176,28 +166,14 @@ export function StudyBrowserSort({ servicesManager }: any) {
         </select>
         <button
           onClick={toggleSortDirection}
-          className="flex h-[28px] w-[28px] items-center justify-center rounded border border-gray-600 bg-gray-900 transition-all duration-200 hover:bg-gray-800 hover:border-blue-500"
-          title={`Sort ${sortDirection === 'ascending' ? 'Descending' : 'Ascending'}`}
+          className="border-inputfield-main flex items-center justify-center rounded border bg-black"
         >
-          <span className="text-blue-400 text-xs font-bold">
-            {sortDirection === 'ascending' ? '↑' : '↓'}
-          </span>
+          <Icon
+            name={sortDirection === 'ascending' ? 'sorting-active-up' : 'sorting-active-down'}
+            className="text-primary-main mx-2 w-2"
+          />
         </button>
       </div>
-
-      {/* Search feedback - Compact */}
-      {searchTerm && (
-        <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-800/30 rounded px-2 py-1">
-          <span className="text-blue-400">🔍</span>
-          <span className="truncate">
-            "{searchTerm}" 
-            {filteredSuggestions.length > 0 ? 
-              <span className="text-green-400 ml-1">({filteredSuggestions.length} found)</span> : 
-              <span className="text-orange-400 ml-1">(no matches)</span>
-            }
-          </span>
-        </div>
-      )}
     </div>
   );
-}
+} 
