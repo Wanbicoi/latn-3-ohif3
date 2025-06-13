@@ -25,15 +25,22 @@ export default function CreateReportDialogPrompt(uiDialogService, { extensionMan
      */
     const _handleFormSubmit = ({ action, value }) => {
       uiDialogService.dismiss({ id: dialogId });
-      switch (action.id) {
+      switch (action?.id) {
         case 'save':
           resolve({
             action: PROMPT_RESPONSES.CREATE_REPORT,
-            value: value.label,
-            dataSourceName: value.dataSourceName,
+            value: value?.label,
+            dataSourceName: value?.dataSourceName,
           });
           break;
         case 'cancel':
+          resolve({
+            action: PROMPT_RESPONSES.CANCEL,
+            value: undefined,
+            dataSourceName: undefined,
+          });
+          break;
+        default:
           resolve({
             action: PROMPT_RESPONSES.CANCEL,
             value: undefined,
@@ -87,7 +94,8 @@ export default function CreateReportDialogPrompt(uiDialogService, { extensionMan
               uiDialogService.dismiss({ id: dialogId });
               resolve({
                 action: PROMPT_RESPONSES.CREATE_REPORT,
-                value: value.label,
+                value: value?.label,
+                dataSourceName: value?.dataSourceName,
               });
             }
           };
@@ -121,13 +129,15 @@ export default function CreateReportDialogPrompt(uiDialogService, { extensionMan
                   labelClassName="text-white text-[14px] leading-[1.2]"
                   className="border-primary-main bg-black"
                   type="text"
-                  value={value.label}
+                  value={value?.label || ''}
                   onChange={onChangeHandler}
                   onKeyPress={onKeyPressHandler}
                   onFocus={() => {}}
                   onKeyDown={() => {}}
                   readOnly={false}
                   required
+                  disabled={false}
+                  labelChildren={null}
                 />
               </div>
             </>

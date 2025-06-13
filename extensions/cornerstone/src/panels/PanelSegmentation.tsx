@@ -266,10 +266,6 @@ export default function PanelSegmentation({
             <SegmentationTable.SelectorHeader />
             <SegmentationTable.AddSegmentRow />
             <SegmentationTable.Segments />
-            <SegmentationTable.Comments 
-              activeSegmentId={activeSegmentId || 1} 
-              servicesManager={servicesManager}
-            />
           </SegmentationTable.Collapsed>
         ) : (
           <SegmentationTable.Expanded>
@@ -278,6 +274,12 @@ export default function PanelSegmentation({
             <SegmentationTable.Segments />
           </SegmentationTable.Expanded>
         )}
+        
+        {/* Floating Comments Panel - Always visible and accessible */}
+        <SegmentationTable.FloatingComments 
+          activeSegmentId={activeSegmentId || 1} 
+          servicesManager={servicesManager}
+        />
       </SegmentationTable>
     </>
   );

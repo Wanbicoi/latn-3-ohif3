@@ -18,7 +18,7 @@ async function promptSaveReport({ servicesManager, commandsManager, extensionMan
       extensionManager,
     });
 
-    if (promptResult.action === PROMPT_RESPONSES.CREATE_REPORT) {
+    if (promptResult?.action === PROMPT_RESPONSES.CREATE_REPORT) {
       const dataSources = extensionManager.getDataSources();
       const dataSource = dataSources[0];
       const measurements = measurementService.getMeasurements();
@@ -30,9 +30,9 @@ async function promptSaveReport({ servicesManager, commandsManager, extensionMan
 
       const SeriesDescription =
         // isUndefinedOrEmpty
-        promptResult.value === undefined || promptResult.value === ''
+        promptResult?.value === undefined || promptResult?.value === ''
           ? 'Research Derived Series' // default
-          : promptResult.value; // provided value
+          : promptResult?.value; // provided value
 
       const SeriesNumber = getNextSRSeriesNumber(displaySetService);
 
@@ -55,12 +55,12 @@ async function promptSaveReport({ servicesManager, commandsManager, extensionMan
         servicesManager,
         getReport,
       });
-    } else if (promptResult.action === RESPONSE.CANCEL) {
+    } else if (promptResult?.action === PROMPT_RESPONSES.CANCEL) {
       // Do nothing
     }
 
     return {
-      userResponse: promptResult.action,
+      userResponse: promptResult?.action,
       createdDisplaySetInstanceUIDs: displaySetInstanceUIDs,
       StudyInstanceUID,
       SeriesInstanceUID,

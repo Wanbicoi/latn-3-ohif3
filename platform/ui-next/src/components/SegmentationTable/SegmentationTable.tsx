@@ -4,6 +4,7 @@ import { PanelSection } from '../PanelSection';
 import { SegmentationTableProvider, SegmentationTableContext } from './SegmentationTableContext';
 import { SegmentationSegments } from './SegmentationSegments';
 import { SegmentationComments } from './SegmentationComments';
+import { FloatingSegmentationComments } from './FloatingSegmentationComments';
 import { SegmentationTableConfig } from './SegmentationTableConfig';
 import { AddSegmentRow } from './AddSegmentRow';
 import { AddSegmentationRow } from './AddSegmentationRow';
@@ -28,6 +29,7 @@ interface SegmentationTableComponent extends React.FC<SegmentationTableProps> {
   Collapsed: typeof SegmentationCollapsed;
   Expanded: typeof SegmentationExpanded;
   Comments: typeof SegmentationComments;
+  FloatingComments: typeof FloatingSegmentationComments;
 }
 
 export const SegmentationTable: SegmentationTableComponent = (props: SegmentationTableProps) => {
@@ -77,3 +79,4 @@ SegmentationTable.Header = SegmentationHeader;
 SegmentationTable.Collapsed = SegmentationCollapsed;
 SegmentationTable.Expanded = SegmentationExpanded;
 SegmentationTable.Comments = SegmentationComments;
+SegmentationTable.FloatingComments = FloatingSegmentationComments;

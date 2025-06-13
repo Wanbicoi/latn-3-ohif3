@@ -1,14 +1,29 @@
 // @ts-nocheck
-import React, { useState } from 'react';
-import { PanelSection, ScrollArea, Checkbox, Label, Button, Icons } from '../../components';
+import React, { useState, useEffect } from 'react';
+import { Label, Button } from '../../components';
 import { useSegmentationTableContext } from './SegmentationTableContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabaseClient } from '../../lib/utils';
-import { Eye, Check, X as XIcon, MessageCircle, ChevronUp, ChevronDown, Minimize2, Maximize2 } from 'lucide-react';
+import { Eye, Check, X as XIcon, MessageCircle, ChevronUp, ChevronDown, Minimize2 } from 'lucide-react';
 
-const taskId = new URLSearchParams(window.location.search).get('taskId');
+// Get taskId from URL parameters with fallback
+const getTaskId = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const taskIdFromUrl = urlParams.get('taskId');
+  
+  // If no taskId in URL, try to get from hash or use a default
+  if (!taskIdFromUrl) {
+    console.warn('No taskId found in URL parameters. Current URL:', window.location.href);
+    // You can set a default taskId here if needed
+    return null; // No fallback - require explicit taskId
+  }
+  
+  return taskIdFromUrl;
+};
 
-export const SegmentationComments: React.FC<{
+const taskId = getTaskId();
+
+export const FloatingSegmentationComments: React.FC<{
   segmentation?: any;
   representation?: any;
   activeSegmentId: number;
@@ -19,6 +34,16 @@ export const SegmentationComments: React.FC<{
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [debouncedSegmentId, setDebouncedSegmentId] = useState(activeSegmentId);
+
+  // Debounce segment ID changes to reduce API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSegmentId(activeSegmentId);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [activeSegmentId]);
 
   // Get SeriesInstanceUID from segmentation
   const getSeriesInstanceUID = () => {
@@ -37,24 +62,26 @@ export const SegmentationComments: React.FC<{
   const seriesInstanceUID = getSeriesInstanceUID();
 
   // Get segment name từ segmentation service
-  let segmentName = `Segment ${activeSegmentId}`;
+  let segmentName = `Segment ${debouncedSegmentId}`;
   let segmentColor = '#666';
-  let segmentId = `${activeSegmentId}`;
+  let segmentId = `Segment ${debouncedSegmentId}`; // Default to "Segment X" format
 
   try {
     if (servicesManager && activeSegmentationId) {
       const { segmentationService } = servicesManager.services;
       const segmentation = segmentationService.getSegmentation(activeSegmentationId);
       
-      if (segmentation && segmentation.segments && segmentation.segments[activeSegmentId]) {
-        const segment = segmentation.segments[activeSegmentId];
+      if (segmentation && segmentation.segments && segmentation.segments[debouncedSegmentId]) {
+        const segment = segmentation.segments[debouncedSegmentId];
         segmentName = segment.label || segmentName;
         
         if (segment.color && Array.isArray(segment.color) && segment.color.length >= 3) {
           segmentColor = `rgb(${segment.color[0]}, ${segment.color[1]}, ${segment.color[2]})`;
         }
         
-        segmentId = segment.label || `${activeSegmentId}`;
+        // Use the actual segment label for database queries
+        // This should match what's stored in database (C1, C2, C3, Segment 1, etc.)
+        segmentId = segment.label || segmentName;
       }
     }
   } catch (error) {
@@ -67,29 +94,64 @@ export const SegmentationComments: React.FC<{
     queryFn: async () => {
       if (!taskId || !segmentId || !seriesInstanceUID) return [];
       
-      const { data, error } = await supabaseClient
-        .from('hd_comments')
-        .select(`
-          *,
-          hd_users!inner(name)
-        `)
-        .eq('task_id', parseInt(taskId))
-        .eq('segment_id', segmentId)
-        .eq('series_instance_uid', seriesInstanceUID)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching comments:', error);
+      const taskIdNumber = parseInt(taskId);
+      if (isNaN(taskIdNumber)) {
         return [];
       }
+      
+      try {
+        const { data, error } = await supabaseClient
+          .from('hd_comments')
+          .select('*')
+          .eq('task_id', taskIdNumber)
+          .eq('segment_id', segmentId)
+          .eq('series_instance_uid', seriesInstanceUID)
+          .order('created_at', { ascending: false });
 
-      return data.map(comment => ({
-        ...comment,
-        name: comment.hd_users?.name || 'Unknown User'
-      }));
+        if (error) {
+          // Handle specific error codes
+          if (error.code === 'PGRST116' || error.message?.includes('406')) {
+            // No data found or not acceptable - return empty array
+            return [];
+          }
+          // For other errors, also return empty array to avoid breaking UI
+          return [];
+        }
+
+        // Get user names from hd_profiles table
+        const commentsWithUserNames = await Promise.all(
+          (data || []).map(async (comment) => {
+            try {
+              const { data: profileData } = await supabaseClient
+                .from('hd_profiles')
+                .select('first_name')
+                .eq('id', comment.user_id)
+                .single();
+              
+              return {
+                ...comment,
+                name: profileData?.first_name || 'Anonymous'
+              };
+            } catch (userError) {
+              return {
+                ...comment,
+                name: 'Anonymous'
+              };
+            }
+          })
+        );
+
+        return commentsWithUserNames;
+      } catch (error) {
+        // Silently handle errors to avoid breaking the UI
+        return [];
+      }
     },
-    enabled: !!taskId && !!segmentId && !!seriesInstanceUID,
-    refetchInterval: 5000,
+    enabled: !!taskId && !!segmentId && !!seriesInstanceUID && activeSegmentId === debouncedSegmentId && !isMinimized,
+    refetchInterval: isExpanded ? 15000 : false, // Only auto-refresh when expanded
+    retry: false, // Don't retry failed requests
+    staleTime: 10000, // Cache for 10 seconds
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
   // Query để lấy status
@@ -98,29 +160,67 @@ export const SegmentationComments: React.FC<{
     queryFn: async () => {
       if (!taskId || !segmentId || !seriesInstanceUID) return null;
       
-      const { data, error } = await supabaseClient
-        .from('hd_segment_status')
-        .select('status')
-        .eq('task_id', parseInt(taskId))
-        .eq('segment_id', segmentId)
-        .eq('series_instance_uid', seriesInstanceUID)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching status:', error);
+      const taskIdNumber = parseInt(taskId);
+      if (isNaN(taskIdNumber)) {
         return null;
       }
+      
+      try {
 
-      return data;
+        
+        const { data, error } = await supabaseClient
+          .from('hd_segment_status')
+          .select('status')
+          .eq('task_id', taskIdNumber)
+          .eq('segment_id', segmentId)
+          .eq('series_instance_uid', seriesInstanceUID)
+          .single();
+
+        if (error) {
+          // Handle specific error codes
+          if (error.code === 'PGRST116' || error.message?.includes('406') || error.message?.includes('Not Acceptable')) {
+            // No data found or not acceptable - return null (no status)
+            return null;
+          }
+          // For other errors, also return null to avoid breaking UI
+          return null;
+        }
+
+        return data;
+      } catch (error) {
+        // Silently handle errors to avoid breaking the UI
+        return null;
+      }
     },
-    enabled: !!taskId && !!segmentId && !!seriesInstanceUID,
+    enabled: !!taskId && !!segmentId && !!seriesInstanceUID && activeSegmentId === debouncedSegmentId && !isMinimized,
+    retry: false, // Don't retry failed requests
+    staleTime: 10000, // Cache for 10 seconds
+    refetchInterval: false, // Don't auto-refetch status
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  const currentStatus = statusData?.status || null;
+    const currentStatus = statusData?.status || null;
+
+
+
+ 
 
   // Mutation để thêm comment
   const addCommentMutation = useMutation({
     mutationFn: async (newComment: string) => {
+      // Validate required fields
+      if (!taskId) {
+        throw new Error('Task ID is required. Please add ?taskId=<id> to the URL');
+      }
+      
+      if (!segmentId) {
+        throw new Error('Segment ID is required');
+      }
+      
+      if (!seriesInstanceUID) {
+        throw new Error('Series Instance UID is required');
+      }
+
       // Get the current authenticated user
       const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
       
@@ -133,18 +233,57 @@ export const SegmentationComments: React.FC<{
         throw new Error('User not authenticated');
       }
       
-      const { data, error } = await supabaseClient
-        .from('hd_comments')
-        .insert({
-          task_id: parseInt(taskId),
-          segment_id: segmentId,
-          series_instance_uid: seriesInstanceUID,
-          content: newComment,
-          user_id: user.id, // Use actual authenticated user ID
-        })
-        .select();
+      const taskIdNumber = parseInt(taskId);
+      if (isNaN(taskIdNumber)) {
+        throw new Error('Invalid task ID');
+      }
+      
+      
+      
+      // Try to insert into hd_comments table
+      let data, error;
+      
+      try {
+        const result = await supabaseClient
+          .from('hd_comments')
+          .insert({
+            task_id: taskIdNumber,
+            segment_id: segmentId,
+            series_instance_uid: seriesInstanceUID,
+            content: newComment,
+            user_id: user.id,
+          })
+          .select();
+        
+        data = result.data;
+        error = result.error;
+      } catch (tableError) {
+        console.warn('hd_comments table not found, trying alternative...');
+        
+        // Try alternative table
+        try {
+          const result = await supabaseClient
+            .from('hd_task_comments')
+            .insert({
+              task_id: taskIdNumber,
+              segment_id: segmentId,
+              series_instance_uid: seriesInstanceUID,
+              content: newComment,
+              user_id: user.id,
+            })
+            .select();
+          
+          data = result.data;
+          error = result.error;
+        } catch (altError) {
+          throw new Error('No suitable comments table found for insertion');
+        }
+      }
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
       return data;
     },
     onSuccess: () => {
@@ -161,10 +300,30 @@ export const SegmentationComments: React.FC<{
     mutationFn: async (newStatus: string) => {
       setIsLoading(true);
       
+      // Validate required fields
+      if (!taskId) {
+        throw new Error('Task ID is required. Please add ?taskId=<id> to the URL');
+      }
+      
+      if (!segmentId) {
+        throw new Error('Segment ID is required');
+      }
+      
+      if (!seriesInstanceUID) {
+        throw new Error('Series Instance UID is required');
+      }
+      
+      const taskIdNumber = parseInt(taskId);
+      if (isNaN(taskIdNumber)) {
+        throw new Error('Invalid task ID');
+      }
+      
+      
+      
       const { data, error } = await supabaseClient
         .from('hd_segment_status')
         .upsert({
-          task_id: parseInt(taskId),
+          task_id: taskIdNumber,
           segment_id: segmentId,
           series_instance_uid: seriesInstanceUID,
           status: newStatus,
@@ -174,7 +333,10 @@ export const SegmentationComments: React.FC<{
         })
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
       return data;
     },
     onSuccess: () => {
@@ -225,7 +387,25 @@ export const SegmentationComments: React.FC<{
     }
   };
 
-  // Early return if no seriesInstanceUID - don't show comment/review functionality
+  // Early return if missing required data
+  if (!taskId) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <div className="bg-red-900/90 backdrop-blur-sm border border-red-600 rounded-lg p-3 max-w-sm shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="text-red-400 text-lg">❌</div>
+            <div>
+              <div className="text-red-200 font-semibold text-xs">Missing Task ID</div>
+              <div className="text-red-300 text-xs">
+                Please add ?taskId=&lt;id&gt; to the URL
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!seriesInstanceUID) {
     return (
       <div className="fixed bottom-4 right-4 z-50">
@@ -239,6 +419,17 @@ export const SegmentationComments: React.FC<{
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if segment is still debouncing to avoid API conflicts
+  if (activeSegmentId !== debouncedSegmentId) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <div className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg">
+          <MessageCircle className="w-5 h-5 animate-pulse" />
         </div>
       </div>
     );
@@ -427,4 +618,4 @@ export const SegmentationComments: React.FC<{
       </div>
     </div>
   );
-};
+}; 
