@@ -40,9 +40,14 @@ function currentSegmentsInfo(segmentationService) {
       return;
     }
 
+    // Ensure color is always an array with at least 3 elements
+    const color = segment.color && Array.isArray(segment.color) && segment.color.length >= 3 
+      ? segment.color 
+      : [0, 0, 0];
+
     info[segment.label] = {
       segmentIndex: segment.segmentIndex,
-      color: segment.color,
+      color: color,
     };
     indices.add(segment.segmentIndex);
   });

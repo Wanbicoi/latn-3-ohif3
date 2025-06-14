@@ -242,12 +242,24 @@ class CornerstoneCacheService {
       // getSOPClassHandler method
 
       if (displaySet.load && displaySet.load instanceof Function) {
+        console.log('🔍 DisplaySet has load function:', {
+          displaySetInstanceUID: displaySet.displaySetInstanceUID,
+          Modality: displaySet.Modality,
+          isParametricMap,
+          isSeg,
+          hasReferencedDisplaySetInstanceUID: !!displaySet.referencedDisplaySetInstanceUID,
+          isLoaded: displaySet.isLoaded,
+          SeriesDescription: displaySet.SeriesDescription
+        });
+        
         const { userAuthenticationService } = this.servicesManager.services;
         const headers = userAuthenticationService.getAuthorizationHeader();
 
         try {
           await displaySet.load({ headers });
+          console.log('✅ DisplaySet loaded successfully:', displaySet.displaySetInstanceUID);
         } catch (e) {
+          console.error('❌ Error loading displaySet:', e);
           const { uiNotificationService } = this.servicesManager.services;
           uiNotificationService.show({
             title: 'Error loading displaySet',
@@ -260,6 +272,11 @@ class CornerstoneCacheService {
         // Parametric maps have a `load` method but it should not be loaded in the
         // same way as SEG and RTSTRUCT but like a normal volume
         if (!isParametricMap) {
+          console.log('📦 Adding displaySet without volume (SEG/RT):', {
+            displaySetInstanceUID: displaySet.displaySetInstanceUID,
+            Modality: displaySet.Modality
+          });
+          
           volumeData.push({
             studyInstanceUID: displaySet.StudyInstanceUID,
             displaySetInstanceUID: displaySet.displaySetInstanceUID,

@@ -252,7 +252,7 @@ export default class PointPrompts extends BaseTab {
   };
 
   segColorToRgb(s) {
-    const c = s ? s.color : [0, 0, 0];
+    const c = s && s.color && Array.isArray(s.color) ? s.color : [0, 0, 0];
     return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
   }
 

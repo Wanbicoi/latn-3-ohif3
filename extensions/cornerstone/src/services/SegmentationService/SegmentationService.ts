@@ -487,6 +487,10 @@ class SegmentationService extends PubSubService {
     // We should parse the segmentation as separate slices to support overlapping segments.
     // This parsing should occur in the CornerstoneJS library adapters.
     // For now, we use the volume returned from the library and chop it here.
+    
+        // Skip slice order correction for loaded SEGs to avoid metadata access issues
+    // The correction will be applied when creating new segmentations
+    
     let firstSegmentedSliceImageId = null;
     for (let i = 0; i < derivedSegmentationImages.length; i++) {
       const voxelManager = derivedSegmentationImages[i]

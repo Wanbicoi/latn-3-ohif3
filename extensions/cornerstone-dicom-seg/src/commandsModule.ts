@@ -9,7 +9,7 @@ import {
   utilities,
 } from '@cornerstonejs/tools';
 import { adaptersRT, helpers, adaptersSEG } from '@cornerstonejs/adapters';
-import { classes, DicomMetadataStore } from '@ohif/core';
+import { classes, DicomMetadataStore, utils } from '@ohif/core';
 
 import vtkImageMarchingSquares from '@kitware/vtk.js/Filters/General/ImageMarchingSquares';
 import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
@@ -132,57 +132,164 @@ const commandsModule = ({
 
       // Check and preserve orientation information from the first referenced image
       const firstReferencedImage = referencedImages[0];
-      const imageOrientationPatient = firstReferencedImage?.data?.metadata?.ImageOrientationPatient;
-      const imagePositionPatient = firstReferencedImage?.data?.metadata?.ImagePositionPatient;
+      const referenceMetadata = firstReferencedImage?.data?.metadata;
       
-      console.log('🔍 Orientation Debug:', {
-        imageOrientationPatient,
-        imagePositionPatient,
+      console.log('🔍 Reference Image Orientation Debug:', {
+        hasMetadata: !!referenceMetadata,
+        imageOrientationPatient: referenceMetadata?.ImageOrientationPatient,
+        imagePositionPatient: referenceMetadata?.ImagePositionPatient,
+        pixelSpacing: referenceMetadata?.PixelSpacing,
+        sliceThickness: referenceMetadata?.SliceThickness,
+        frameOfReferenceUID: referenceMetadata?.FrameOfReferenceUID,
         segmentationId,
         numSegImages: segImages.length,
         numReferencedImages: referencedImages.length
       });
 
-      const labelmaps2D = [];
+      // -------------------------------------------------------------------
+      // Build labelmaps2D theo order của referencedImages (đúng slice index)
+      // -------------------------------------------------------------------
+      const refIdToIdx: Record<string, number> = {};
+      referencedImages.forEach((img, i) => {
+        const id = (img as any).imageId || (img as any).SOPInstanceUID || `${i}`;
+        refIdToIdx[id] = i;
+      });
 
-      let z = 0;
+      const labelmapsWithOrder: { idx: number; lm: any }[] = [];
 
       for (const segImage of segImages) {
-        const segmentsOnLabelmap = new Set();
         const pixelData = segImage.getPixelData();
         const { rows, columns } = segImage;
-
-        // Use a single pass through the pixel data
+        const segmentsOnLabelmap = new Set<number>();
         for (let i = 0; i < pixelData.length; i++) {
-          const segment = pixelData[i];
-          if (segment !== 0) {
-            segmentsOnLabelmap.add(segment);
-          }
+          const v = pixelData[i];
+          if (v) segmentsOnLabelmap.add(v);
         }
 
-        labelmaps2D[z++] = {
-          segmentsOnLabelmap: Array.from(segmentsOnLabelmap),
-          pixelData,
-          rows,
-          columns,
-        };
+        // Determine slice index from referenced image id
+        const refId = (segImage as any).referencedImageId || (segImage as any).SOPInstanceUID;
+        const sliceIdx = refIdToIdx[refId] ?? labelmapsWithOrder.length;
+
+        labelmapsWithOrder.push({
+          idx: sliceIdx,
+          lm: {
+            segmentsOnLabelmap: Array.from(segmentsOnLabelmap),
+            pixelData,
+            rows,
+            columns,
+          },
+        });
       }
 
-      const allSegmentsOnLabelmap = labelmaps2D.map(labelmap => labelmap.segmentsOnLabelmap);
+      // sort by original slice index
+      labelmapsWithOrder.sort((a, b) => a.idx - b.idx);
 
-      // Guard: ensure there is at least one labeled pixel before attempting
-      // to generate a DICOM-SEG. When the labelmaps contain no non-zero
-      // pixels, the downstream adapter will throw an unclear
-      // "setNumberOfFrames()" error. Detecting it early allows us to return
-      // a more meaningful message and avoid the crash.
-      const hasLabeledPixels = labelmaps2D.some(lm =>
-        Array.isArray(lm?.segmentsOnLabelmap) && lm.segmentsOnLabelmap.some(idx => idx !== 0)
-      );
+      let labelmaps2D = labelmapsWithOrder.map(it => it.lm);
 
+      // -------------------------------------------------------------------
+      // COMPREHENSIVE SLICE ORDER CORRECTION FOR ALL ORIENTATIONS
+      // -------------------------------------------------------------------
+      
+      console.log('🔍 Analyzing slice order for segmentation:', {
+        segmentationId,
+        totalSlices: labelmaps2D.length,
+        hasSegments: Object.keys(segmentation.segments).length
+      });
+
+      // Apply slice order correction for all segmentations with sufficient slices
+      if (labelmaps2D.length > 5) {
+        // Get reference image metadata to determine orientation
+        const firstRefImage = referencedImages[0];
+        const refMetadata = metaData.get('instance', firstRefImage.imageId || firstRefImage);
+        
+        let shouldReverse = false;
+        let correctionReason = '';
+        
+        if (refMetadata?.ImageOrientationPatient) {
+          const orientation = refMetadata.ImageOrientationPatient;
+          
+          // Check if this is axial orientation (most common case with slice order issues)
+          const isAxial = Math.abs(orientation[4]) > 0.9; // Y component of row direction
+          const isCoronal = Math.abs(orientation[5]) > 0.9; // Z component of row direction  
+          const isSagittal = Math.abs(orientation[2]) > 0.9; // Z component of column direction
+          
+          console.log('🧭 Detected orientation:', {
+            orientation,
+            isAxial,
+            isCoronal, 
+            isSagittal,
+            imagePosition: refMetadata.ImagePositionPatient
+          });
+          
+          // For axial images, check if slices are ordered incorrectly
+          if (isAxial && refMetadata.ImagePositionPatient) {
+            const firstSliceZ = refMetadata.ImagePositionPatient[2];
+            const lastRefImage = referencedImages[referencedImages.length - 1];
+            const lastMetadata = metaData.get('instance', lastRefImage.imageId || lastRefImage);
+            
+            if (lastMetadata?.ImagePositionPatient) {
+              const lastSliceZ = lastMetadata.ImagePositionPatient[2];
+              
+              // If first slice has higher Z than last slice, slices are likely reversed
+              if (firstSliceZ > lastSliceZ) {
+                shouldReverse = true;
+                correctionReason = 'Axial slices ordered from superior to inferior (should be inferior to superior)';
+              }
+            }
+          }
+          
+          // Additional check: analyze label distribution regardless of orientation
+          const totalSlices = labelmaps2D.length;
+          const firstQuarter = labelmaps2D.slice(0, Math.floor(totalSlices / 4));
+          const lastQuarter = labelmaps2D.slice(Math.floor(totalSlices * 3/4));
+          
+          // Count labeled pixels in first and last quarters
+          const firstQuarterLabels = firstQuarter.reduce((sum, lm) => 
+            sum + lm.segmentsOnLabelmap.filter(x => x > 0).length, 0);
+          const lastQuarterLabels = lastQuarter.reduce((sum, lm) => 
+            sum + lm.segmentsOnLabelmap.filter(x => x > 0).length, 0);
+          
+          const totalLabeledPixels = firstQuarterLabels + lastQuarterLabels;
+          const imbalanceRatio = lastQuarterLabels > 0 ? firstQuarterLabels / lastQuarterLabels : 
+                                firstQuarterLabels > 0 ? 999 : 1;
+          
+          console.log('📊 Label distribution analysis:', {
+            totalSlices,
+            firstQuarterLabels,
+            lastQuarterLabels,
+            totalLabeledPixels,
+            imbalanceRatio
+          });
+          
+          // If there's significant imbalance, likely the slices are reversed
+          if (imbalanceRatio > 2.0 && totalLabeledPixels > 3) {
+            shouldReverse = true;
+            correctionReason = `Label distribution imbalance (ratio: ${imbalanceRatio.toFixed(2)})`;
+          }
+        }
+        
+        // Apply reversal if needed
+        if (shouldReverse) {
+          console.log('🔄 Reversing slice order:', correctionReason);
+          labelmaps2D = labelmaps2D.reverse();
+          
+          console.log('✅ Applied slice order correction');
+        } else {
+          console.log('✅ Slice order appears correct (no correction needed)');
+        }
+      } else {
+        console.log('ℹ️ Too few slices for slice order analysis');
+      }
+
+      // -------------------------------------------------------------------
+      // END slice-order correction
+      // -------------------------------------------------------------------
+
+      // Guard ensure labeled pixels
+      const allSegmentsOnLabelmap = labelmaps2D.map(lm => lm.segmentsOnLabelmap);
+      const hasLabeledPixels = labelmaps2D.some(lm => lm.segmentsOnLabelmap.some(x => x));
       if (!hasLabeledPixels) {
-        throw new Error(
-          'Segmentation has no labelled pixels – nothing to save. Please add a segmentation before saving.'
-        );
+        throw new Error('Segmentation has no labelled pixels – nothing to save.');
       }
 
       const labelmap3D = {
@@ -191,10 +298,9 @@ const commandsModule = ({
         labelmaps2D,
       };
 
-      const segmentationInOHIF = segmentationService.getSegmentation(segmentationId);
       const representations = segmentationService.getRepresentationsForSegmentation(segmentationId);
 
-      Object.entries(segmentationInOHIF.segments).forEach(([segmentIndex, segment]) => {
+      Object.entries(segmentation.segments).forEach(([segmentIndex, segment]) => {
         // segmentation service already has a color for each segment
         if (!segment) {
           return;
@@ -239,6 +345,13 @@ const commandsModule = ({
         // Keep original options structure for compatibility
         // preserveOrientation: true,
         // coordinateSystem: 'LPS', // DICOM standard
+        
+        // Add orientation validation and correction
+        validateOrientation: true,
+        preserveImageOrientation: true,
+        
+        // Ensure proper slice ordering
+        maintainSliceOrder: true,
       };
 
       console.log('🔧 Generating segmentation with enhanced options:', enhancedOptions);
@@ -250,14 +363,62 @@ const commandsModule = ({
         enhancedOptions
       );
 
-      // Additional validation of generated segmentation orientation
-      if (generatedSegmentation?.dataset) {
-        console.log('✅ Generated segmentation dataset:', {
+      // Enhanced validation and correction of generated segmentation orientation
+      if (generatedSegmentation?.dataset && referenceMetadata) {
+        console.log('🔧 Applying comprehensive orientation preservation...');
+        
+        // Critical orientation fields - always copy from reference
+        const orientationFields = [
+          'ImageOrientationPatient',
+          'ImagePositionPatient', 
+          'PixelSpacing',
+          'SliceThickness',
+          'SpacingBetweenSlices',
+          'FrameOfReferenceUID',
+          'SliceLocation',
+          'ImageType',
+          'PatientPosition',
+          'PatientOrientation'
+        ];
+        
+        let appliedFields = [];
+        
+        orientationFields.forEach(field => {
+          if (referenceMetadata[field] !== undefined) {
+            // Always override with reference metadata for consistency
+            generatedSegmentation.dataset[field] = referenceMetadata[field];
+            appliedFields.push(field);
+          }
+        });
+        
+        // Ensure proper coordinate system consistency
+        if (referenceMetadata.ImageOrientationPatient) {
+          // Validate and normalize orientation vectors
+          const orientation = referenceMetadata.ImageOrientationPatient;
+          if (Array.isArray(orientation) && orientation.length === 6) {
+            generatedSegmentation.dataset.ImageOrientationPatient = orientation.map(v => parseFloat(v));
+          }
+        }
+        
+        console.log('✅ Applied orientation preservation:', {
+          appliedFields,
+          totalFieldsApplied: appliedFields.length,
           hasImageOrientationPatient: !!generatedSegmentation.dataset.ImageOrientationPatient,
           hasImagePositionPatient: !!generatedSegmentation.dataset.ImagePositionPatient,
-          seriesDescription: generatedSegmentation.dataset.SeriesDescription
+          hasFrameOfReferenceUID: !!generatedSegmentation.dataset.FrameOfReferenceUID
         });
+      } else {
+        console.warn('⚠️ Cannot apply orientation preservation - missing dataset or reference metadata');
       }
+      
+      console.log('✅ Final generated segmentation dataset summary:', {
+        hasImageOrientationPatient: !!generatedSegmentation?.dataset?.ImageOrientationPatient,
+        hasImagePositionPatient: !!generatedSegmentation?.dataset?.ImagePositionPatient,
+        hasPixelSpacing: !!generatedSegmentation?.dataset?.PixelSpacing,
+        hasSliceThickness: !!generatedSegmentation?.dataset?.SliceThickness,
+        hasFrameOfReferenceUID: !!generatedSegmentation?.dataset?.FrameOfReferenceUID,
+        seriesDescription: generatedSegmentation?.dataset?.SeriesDescription
+      });
 
       return generatedSegmentation;
     },
@@ -334,16 +495,8 @@ const commandsModule = ({
           throw new Error('No segmentation found');
         }
 
-        console.log('🔧 Segmentation info:', {
-          segmentationId,
-          hasSegments: !!segmentation.segments,
-          numSegments: Object.keys(segmentation.segments || {}).length,
-          label: segmentation.label
-        });
-
         let generatedData: any;
         try {
-          console.log('🏗️ Generating DICOM SEG...');
           generatedData = actions.generateSegmentation({
             segmentationId,
             options: {
@@ -353,7 +506,6 @@ const commandsModule = ({
               rleEncode: false, // Disable RLE encoding for better compatibility
             },
           });
-          console.log('✅ DICOM SEG generated successfully');
         } catch (error) {
           // Present a user-friendly message and abort the store operation
           const message =
@@ -381,20 +533,178 @@ const commandsModule = ({
         const { dataset: naturalizedReport } = generatedData;
 
         // Add additional metadata for better compatibility
-        console.log('📝 Enhancing DICOM metadata...');
         naturalizedReport.SeriesDescription = SeriesDescription;
         
+        // Preserve orientation and position metadata from reference series
+        let orientationMetadata = null;
+        
+        if (segmentation && segmentation.representationData && segmentation.representationData.LABELMAP) {
+          const labelmapData = segmentation.representationData.LABELMAP;
+          
+          // Try multiple ways to get orientation metadata
+          if (labelmapData.referencedImageIds && labelmapData.referencedImageIds.length > 0) {
+            // Method 1: Get from first referenced image
+            const firstImageId = labelmapData.referencedImageIds[0];
+            const imageMetadata = metaData.get('instance', firstImageId);
+            
+            if (imageMetadata) {
+              orientationMetadata = imageMetadata;
+              console.log('📍 Got orientation from referenced image metadata');
+            }
+          }
+          
+          // Method 2: Get from referenced volume if available
+          if (!orientationMetadata && labelmapData.referencedVolumeId) {
+            const volume = cache.getVolume(labelmapData.referencedVolumeId);
+            if (volume && volume.imageIds && volume.imageIds.length > 0) {
+              const volumeImageMetadata = metaData.get('instance', volume.imageIds[0]);
+              if (volumeImageMetadata) {
+                orientationMetadata = volumeImageMetadata;
+                console.log('📍 Got orientation from volume metadata');
+              }
+            }
+          }
+          
+          // Method 3: Get from display set if available
+          if (!orientationMetadata) {
+            const { displaySetService } = servicesManager.services;
+            const activeDisplaySets = displaySetService.getActiveDisplaySets();
+            const ctDisplaySet = activeDisplaySets.find(ds => ds.Modality === 'CT' || ds.Modality === 'MR');
+            
+            if (ctDisplaySet && ctDisplaySet.instances && ctDisplaySet.instances.length > 0) {
+              orientationMetadata = ctDisplaySet.instances[0];
+              console.log('📍 Got orientation from CT/MR display set');
+            }
+          }
+          
+          // Apply orientation metadata if found
+          if (orientationMetadata) {
+            // Preserve critical orientation metadata
+            if (orientationMetadata.ImageOrientationPatient) {
+              naturalizedReport.ImageOrientationPatient = orientationMetadata.ImageOrientationPatient;
+            }
+            if (orientationMetadata.ImagePositionPatient) {
+              naturalizedReport.ImagePositionPatient = orientationMetadata.ImagePositionPatient;
+            }
+            if (orientationMetadata.PixelSpacing) {
+              naturalizedReport.PixelSpacing = orientationMetadata.PixelSpacing;
+            }
+            if (orientationMetadata.SliceThickness) {
+              naturalizedReport.SliceThickness = orientationMetadata.SliceThickness;
+            }
+            if (orientationMetadata.SpacingBetweenSlices) {
+              naturalizedReport.SpacingBetweenSlices = orientationMetadata.SpacingBetweenSlices;
+            }
+            if (orientationMetadata.FrameOfReferenceUID) {
+              naturalizedReport.FrameOfReferenceUID = orientationMetadata.FrameOfReferenceUID;
+            }
+            
+            // Additional DICOM metadata for proper orientation
+            if (orientationMetadata.SliceLocation !== undefined) {
+              naturalizedReport.SliceLocation = orientationMetadata.SliceLocation;
+            }
+            if (orientationMetadata.ImageType) {
+              naturalizedReport.ImageType = orientationMetadata.ImageType;
+            }
+            if (orientationMetadata.PatientPosition) {
+              naturalizedReport.PatientPosition = orientationMetadata.PatientPosition;
+            }
+            
+            console.log('✅ Preserved orientation metadata from reference:', {
+              ImageOrientationPatient: naturalizedReport.ImageOrientationPatient,
+              ImagePositionPatient: naturalizedReport.ImagePositionPatient,
+              FrameOfReferenceUID: naturalizedReport.FrameOfReferenceUID,
+              SliceLocation: naturalizedReport.SliceLocation,
+              PatientPosition: naturalizedReport.PatientPosition,
+              source: 'enhanced_detection'
+            });
+          } else {
+            console.warn('⚠️ Could not find orientation metadata from any source');
+          }
+        }
+        
         // Auto-generate incremental series number for SEG
-        const existingDisplaySets = displaySetService.getActiveDisplaySets();
-        const segDisplaySets = existingDisplaySets.filter(ds => ds.Modality === 'SEG');
-        const maxSeriesNumber = Math.max(
-          ...segDisplaySets.map(ds => parseInt(ds.SeriesNumber) || 0),
-          1000 // Start from 1000 for SEG series
-        );
+        // Get only valid SEG display sets that are actually loaded and not deleted
+        let existingDisplaySets = displaySetService.getActiveDisplaySets();
+        
+        // Clean up any invalid display sets before calculating series numbers
+        try {
+          const invalidDisplaySets = [];
+          
+          existingDisplaySets.forEach(ds => {
+            if (ds.Modality === 'SEG') {
+              // Only remove if it's clearly broken
+              const isDefinitelyInvalid = (
+                (!ds.instances || ds.instances.length === 0) &&
+                (!ds.sopClassUIDs || ds.sopClassUIDs.length === 0) &&
+                !ds.SeriesInstanceUID
+              );
+              
+              if (isDefinitelyInvalid) {
+                invalidDisplaySets.push(ds.displaySetInstanceUID);
+              }
+            }
+          });
+          
+          // Remove invalid display sets
+          invalidDisplaySets.forEach(displaySetInstanceUID => {
+            try {
+              displaySetService.deleteDisplaySet(displaySetInstanceUID);
+            } catch (deleteError) {
+              // Silent cleanup
+            }
+          });
+          
+          // Refresh the list after cleanup
+          if (invalidDisplaySets.length > 0) {
+            existingDisplaySets = displaySetService.getActiveDisplaySets();
+          }
+          
+        } catch (cleanupError) {
+          // Silent cleanup error handling
+        }
+        
+        const validSegDisplaySets = existingDisplaySets.filter(ds => {
+          // Only include SEG modality
+          if (ds.Modality !== 'SEG') return false;
+          
+          // Must have SeriesInstanceUID (basic requirement)
+          if (!ds.SeriesInstanceUID) return false;
+          
+          // Check if it's from the same study (avoid counting SEGs from other studies)
+          if (ds.StudyInstanceUID !== naturalizedReport.StudyInstanceUID) return false;
+          
+          // Must have a valid series number
+          if (!ds.SeriesNumber || isNaN(parseInt(ds.SeriesNumber))) return false;
+          
+          // Be more lenient with other validations
+          
+          return true;
+        });
+        
+        // Log only essential info
+        console.log('📊 SEG series calculation:', {
+          validSEGs: validSegDisplaySets.length,
+          seriesNumbers: validSegDisplaySets.map(ds => ds.SeriesNumber)
+        });
+        
+        // Get the highest series number from valid SEGs only
+        const existingSeriesNumbers = validSegDisplaySets
+          .map(ds => parseInt(ds.SeriesNumber) || 0)
+          .filter(num => num >= 1000); // Only consider our auto-generated series numbers
+        
+        // Use display set data for series numbers
+        let verifiedSeriesNumbers = existingSeriesNumbers;
+          
+        const maxSeriesNumber = verifiedSeriesNumbers.length > 0 
+          ? Math.max(...verifiedSeriesNumbers)
+          : 1000; // Start from 1000 if no valid SEG series found
+          
         const newSeriesNumber = maxSeriesNumber + 1;
         
+        console.log('📊 New SEG series number:', newSeriesNumber);
+        
         naturalizedReport.SeriesNumber = newSeriesNumber.toString();
-        console.log('🔢 Generated series number:', newSeriesNumber, 'for SEG series');
         
         // Ensure proper SOP Class UID for SEG
         naturalizedReport.SOPClassUID = '1.2.840.10008.5.1.4.1.1.66.4';
@@ -408,20 +718,6 @@ const commandsModule = ({
         const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
         naturalizedReport.SeriesTime = naturalizedReport.SeriesTime + '.' + milliseconds;
         
-        console.log('📅 Set timestamps:', {
-          SeriesDate: naturalizedReport.SeriesDate,
-          SeriesTime: naturalizedReport.SeriesTime,
-          SeriesNumber: naturalizedReport.SeriesNumber
-        });
-        
-        console.log('🔍 Debug existing SEG series:', segDisplaySets.map(ds => ({
-          uid: ds.displaySetInstanceUID?.slice(-8),
-          seriesNumber: ds.SeriesNumber,
-          seriesNumberType: typeof ds.SeriesNumber,
-          description: ds.SeriesDescription
-        })));
-
-        console.log('💾 Storing to data source...');
         await dataSource.store.dicom(naturalizedReport);
 
         // Dismiss saving notification
@@ -443,10 +739,34 @@ const commandsModule = ({
         // add the information for where we stored it to the instance as well
         naturalizedReport.wadoRoot = dataSource.getConfig().wadoRoot;
 
-        console.log('📋 Adding to metadata store...');
         DicomMetadataStore.addInstances([naturalizedReport], true);
-
-        console.log('✅ Segmentation store process completed successfully');
+        
+        // Immediately trigger display sets update to show new SEG in series list
+        try {
+          // Create display set for the new SEG immediately
+          const newDisplaySets = displaySetService.makeDisplaySets([naturalizedReport], {
+            madeInClient: true,
+            batch: false
+          });
+          
+          if (newDisplaySets && newDisplaySets.length > 0) {
+            console.log('✅ SEG added to series list');
+          }
+          
+        } catch (immediateUpdateError) {
+          // Silent error handling
+        }
+        
+        // Background refresh to ensure UI stays updated
+        setTimeout(async () => {
+          try {
+            const currentDisplaySets = displaySetService.getActiveDisplaySets();
+            displaySetService._broadcastEvent('DISPLAY_SETS_CHANGED', currentDisplaySets);
+          } catch (error) {
+            // Silent background refresh
+          }
+        }, 1000);
+        
         return naturalizedReport;
       } catch (error) {
         console.error('❌ Global error in storeSegmentation:', error);
@@ -586,22 +906,47 @@ const commandsModule = ({
             if (typeof segDisplaySet.load === 'function' && !segDisplaySet.isLoaded) {
               console.log('📥 Loading SEG display set...');
               
-              // Add timeout for loading
-              const loadPromise = segDisplaySet.load({});
-              const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Load timeout')), 30000)
-              );
+              // Add timeout and retry for loading
+              const loadWithRetry = async (retries = 2) => {
+                try {
+                  const loadPromise = segDisplaySet.load({});
+                  const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Load timeout after 30s')), 30000)
+                  );
+                  
+                  await Promise.race([loadPromise, timeoutPromise]);
+                  console.log('✅ SEG display set loaded successfully');
+                  return true;
+                } catch (error) {
+                  if (retries > 0 && (error.message.includes('502') || error.message.includes('timeout'))) {
+                    console.warn(`⚠️ Load failed, retrying... (${retries} attempts left)`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    return loadWithRetry(retries - 1);
+                  }
+                  throw error;
+                }
+              };
               
-              await Promise.race([loadPromise, timeoutPromise]);
-              console.log('✅ SEG display set loaded successfully');
+              await loadWithRetry();
             }
           } catch (loadErr) {
             console.error('❌ Failed to load/parse SEG before creating segmentation', dsUID, loadErr);
             
+            // More specific error messages
+            let errorMessage = 'Failed to load segmentation data';
+            if (loadErr.message.includes('502')) {
+              errorMessage = 'Server temporarily unavailable. Please wait a moment and try again.';
+            } else if (loadErr.message.includes('timeout')) {
+              errorMessage = 'Loading timeout. The segmentation file may be large or server is busy.';
+            } else if (loadErr.message.includes('404')) {
+              errorMessage = 'Segmentation file not found. It may not be fully saved yet.';
+            }
+            
             uiNotificationService.show({
               title: 'Load Segmentation Error',
-              message: `Failed to load segmentation data: ${loadErr.message || 'Unknown error'}`,
+              message: errorMessage,
               type: 'error',
+              duration: 5000,
             });
             continue;
           }
@@ -663,14 +1008,21 @@ const commandsModule = ({
               }
             );
             
-            console.log('📊 Adding segmentation representation...');
+            console.log('🔍 SEG Display Set Orientation Debug:', {
+              displaySetInstanceUID: segDisplaySet.displaySetInstanceUID,
+              hasInstance: !!segDisplaySet.instance,
+              instanceOrientation: segDisplaySet.instance?.ImageOrientationPatient,
+              instancePosition: segDisplaySet.instance?.ImagePositionPatient,
+              frameOfReference: segDisplaySet.instance?.FrameOfReferenceUID,
+              referencedSeriesUID: segDisplaySet.referencedSeriesInstanceUID
+            });
+            
             await segmentationService.addSegmentationRepresentation(targetViewportId, {
               segmentationId,
               type: cornerstoneToolsEnums.SegmentationRepresentations.Labelmap,
             });
 
             // ensure visibility
-            console.log('👁️ Setting active segmentation...');
             segmentationService.setActiveSegmentation(targetViewportId, segmentationId);
 
             // Auto-center viewport on the first segment so user immediately sees label
@@ -678,14 +1030,12 @@ const commandsModule = ({
               const seg = segmentationService.getSegmentation(segmentationId);
               const firstSegmentIndex = Object.keys(seg.segments)[0];
               if (firstSegmentIndex) {
-                console.log('🎯 Jumping to segment center...');
                 segmentationService.jumpToSegmentCenter(segmentationId, Number(firstSegmentIndex), targetViewportId);
               }
             } catch (centerErr) {
               console.warn('Could not jump to segment center', centerErr);
             }
 
-            console.log('✅ Successfully loaded segmentation:', segmentationId);
             segmentationIds.push(segmentationId);
 
             // Show success notification

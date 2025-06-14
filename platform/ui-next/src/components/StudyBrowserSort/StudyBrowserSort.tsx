@@ -73,11 +73,6 @@ export function StudyBrowserSort({ servicesManager }: any) {
       detail: { searchTerm: searchValue }
     });
     window.dispatchEvent(event);
-    
-    console.log('🔍 Search filter event dispatched:', {
-      searchTerm: searchValue,
-      eventType: 'ohif-search-filter-changed'
-    });
   };
 
   useEffect(() => {

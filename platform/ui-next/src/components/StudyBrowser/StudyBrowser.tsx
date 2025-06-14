@@ -40,7 +40,6 @@ const StudyBrowser = ({
     const handleSearchFilter = (event: any) => {
       if (event.detail && event.detail.searchTerm !== undefined) {
         setSearchFilter(event.detail.searchTerm);
-        console.log('📡 StudyBrowser received search filter:', event.detail.searchTerm);
       }
     };
 
@@ -77,48 +76,13 @@ const StudyBrowser = ({
           return description.toLowerCase().includes(searchFilter.toLowerCase());
         });
         
-        console.log('📋 StudyBrowser RAW DATA DEBUG:', {
-          studyId: studyInstanceUid,
-          searchFilter,
-          totalDisplaySets: displaySets.length,
-          filteredDisplaySets: filteredDisplaySets.length
-        });
-        
-        // Log each displaySet separately for better visibility
-        displaySets.forEach((ds: any, index: number) => {
-          console.log(`📋 DisplaySet ${index}:`, {
-            displaySetInstanceUID: ds.displaySetInstanceUID,
-            Modality: ds.Modality,
-            modality: ds.modality,
-            SeriesDescription: ds.SeriesDescription,
-            description: ds.description,
-            seriesDescription: ds.seriesDescription,
-            displaySetDescription: ds.displaySetDescription,
-            seriesNumber: ds.seriesNumber,
-            seriesDate: ds.seriesDate,
-            numInstances: ds.numInstances,
-            allKeys: Object.keys(ds).slice(0, 15) // More keys to see
-          });
-        });
-        
         // Find SEG-like items using description patterns
         const segLikeItems = displaySets.filter((ds: any) => {
           const desc = (ds.description || ds.SeriesDescription || '').toLowerCase();
           return desc.includes('draft') || desc.includes('te') || desc.includes('seg');
         });
         
-        console.log('📋 SEG-like Items found:', segLikeItems.length, segLikeItems.map(ds => ({
-          description: ds.description || ds.SeriesDescription,
-          modality: ds.Modality || ds.modality,
-          matchesSearch: !searchFilter.trim() || (ds.description || ds.SeriesDescription || '').toLowerCase().includes(searchFilter.toLowerCase())
-        })));
-        
         const segItems = displaySets.filter((ds: any) => ds.Modality === 'SEG');
-        console.log('📋 SEG Items found:', segItems.length, segItems.map(ds => ({
-          description: ds.SeriesDescription,
-          modality: ds.Modality,
-          matchesSearch: !searchFilter.trim() || (ds.SeriesDescription || '').toLowerCase().includes(searchFilter.toLowerCase())
-        })));
         
         return (
           <React.Fragment key={studyInstanceUid}>

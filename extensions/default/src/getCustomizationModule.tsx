@@ -202,41 +202,6 @@ export default function getCustomizationModule({ servicesManager, extensionManag
             {
               label: 'Last Updated',
               sortFunction: (a, b) => {
-                // Debug: Log all available fields for SEG items
-                console.log('🔍 Debug item A fields:', {
-                  uid: a?.displaySetInstanceUID?.slice(-8),
-                  allFields: Object.keys(a || {}),
-                  timestamps: {
-                    SeriesDate: a?.SeriesDate,
-                    SeriesTime: a?.SeriesTime,
-                    StudyDate: a?.StudyDate,
-                    StudyTime: a?.StudyTime,
-                    InstanceCreationDate: a?.InstanceCreationDate,
-                    InstanceCreationTime: a?.InstanceCreationTime,
-                    ContentDate: a?.ContentDate,
-                    ContentTime: a?.ContentTime,
-                    AcquisitionDate: a?.AcquisitionDate,
-                    AcquisitionTime: a?.AcquisitionTime
-                  }
-                });
-                
-                console.log('🔍 Debug item B fields:', {
-                  uid: b?.displaySetInstanceUID?.slice(-8),
-                  allFields: Object.keys(b || {}),
-                  timestamps: {
-                    SeriesDate: b?.SeriesDate,
-                    SeriesTime: b?.SeriesTime,
-                    StudyDate: b?.StudyDate,
-                    StudyTime: b?.StudyTime,
-                    InstanceCreationDate: b?.InstanceCreationDate,
-                    InstanceCreationTime: b?.InstanceCreationTime,
-                    ContentDate: b?.ContentDate,
-                    ContentTime: b?.ContentTime,
-                    AcquisitionDate: b?.AcquisitionDate,
-                    AcquisitionTime: b?.AcquisitionTime
-                  }
-                });
-                
                 // Get various timestamp fields for comparison
                 const getTimestamp = (item) => {
                   // Try multiple timestamp fields in order of preference
@@ -262,7 +227,6 @@ export default function getCustomizationModule({ servicesManager, extensionManag
                     const dateStr = seriesDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
                     const timeStr = seriesTime.replace(/(\d{2})(\d{2})(\d{2}).*/, '$1:$2:$3');
                     const fullDateTime = `${dateStr}T${timeStr}`;
-                    console.log('📅 Parsed datetime:', fullDateTime);
                     return new Date(fullDateTime).getTime();
                   }
                   
@@ -270,38 +234,20 @@ export default function getCustomizationModule({ servicesManager, extensionManag
                   if (timestamps.length > 0) {
                     const timeStr = timestamps[0].replace(/(\d{2})(\d{2})(\d{2}).*/, '$1:$2:$3');
                     const fallbackDateTime = `1970-01-01T${timeStr}`;
-                    console.log('⏰ Fallback datetime:', fallbackDateTime);
                     return new Date(fallbackDateTime).getTime();
                   }
                   
                   // If no timestamp, use series number as proxy for creation order
                   const seriesNumber = parseInt(item?.SeriesNumber || item?.seriesNumber || 0);
                   if (seriesNumber > 0) {
-                    console.log('🔢 Using series number as timestamp proxy:', seriesNumber);
                     return seriesNumber; // Higher series number = more recent
                   }
                   
-                  console.log('❌ No timestamp found, using current time');
                   return Date.now();
                 };
                 
                 const timestampA = getTimestamp(a);
                 const timestampB = getTimestamp(b);
-                
-                console.log('⏰ Final comparison:', {
-                  a: { 
-                    uid: a?.displaySetInstanceUID?.slice(-8), 
-                    desc: a?.SeriesDescription,
-                    timestamp: timestampA,
-                    readable: new Date(timestampA).toISOString()
-                  },
-                  b: { 
-                    uid: b?.displaySetInstanceUID?.slice(-8), 
-                    desc: b?.SeriesDescription,
-                    timestamp: timestampB,
-                    readable: new Date(timestampB).toISOString()
-                  }
-                });
                 
                 // Sort by most recent first (descending order)
                 return timestampB - timestampA;
