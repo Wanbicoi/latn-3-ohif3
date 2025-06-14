@@ -1,8 +1,38 @@
 /** @type {AppTypes.Config} */
-
 window.config = {
   routerBasename: '/ohif3',
   // whiteLabeling: {},
+  modesConfiguration: {
+    '@ohif/mode-longitudinal': {
+      hotkeys: [],
+      onModeEnter: () => {},
+      onModeExit: () => {},
+      routes: [
+        {
+          path: 'longitudinal',
+          layoutTemplate: () => {
+            return {
+              id: '@ohif/extension-default.layoutTemplateModule.viewerLayout',
+              props: {
+                viewports: [
+                  {
+                    namespace: '@ohif/extension-cornerstone.viewportModule.cornerstone',
+                    displaySetsToDisplay: ['@ohif/extension-default.sopClassHandlerModule.stack'],
+                  },
+                  {
+                    namespace: '@ohif/extension-cornerstone-dicom-seg.viewportModule.dicom-seg',
+                    displaySetsToDisplay: [
+                      '@ohif/extension-cornerstone-dicom-seg.sopClassHandlerModule.dicom-seg',
+                    ],
+                  },
+                ],
+              },
+            };
+          },
+        },
+      ],
+    },
+  },
   extensions: [],
   modes: [],
   studyBrowserMode: 'primary',
