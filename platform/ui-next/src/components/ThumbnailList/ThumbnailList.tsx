@@ -11,7 +11,7 @@ const ThumbnailList = ({
   activeDisplaySetInstanceUIDs = [],
   viewPreset,
   onThumbnailContextMenu,
-  servicesManager
+  servicesManager,
 }: withAppTypes) => {
   return (
     <div
@@ -44,8 +44,13 @@ const ThumbnailList = ({
             isHydratedForDerivedDisplaySet,
           }) => {
             const isActive = activeDisplaySetInstanceUIDs.includes(displaySetInstanceUID);
+            const { SeriesInstanceUID } =
+              servicesManager.services.displaySetService.getDisplaySetByUID(
+                displaySetInstanceUID
+              ) ?? {};
             return (
               <Thumbnail
+                seriesInstanceUID={SeriesInstanceUID}
                 key={displaySetInstanceUID}
                 displaySetInstanceUID={displaySetInstanceUID}
                 dragData={dragData}

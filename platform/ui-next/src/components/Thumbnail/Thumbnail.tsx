@@ -15,12 +15,12 @@ import {
 // import { SeriesDownloadButton } from '../SegmentationTable/SeriesDownloadButton';
 import { toast } from '../Sonner';
 import { supabaseClient } from '../../lib/utils';
-import { UndoIcon } from 'lucide-react';
 
 /**
  * Display a thumbnail for a display set.
  */
 const Thumbnail = ({
+  seriesInstanceUID,
   displaySetInstanceUID,
   className,
   imageSrc,
@@ -44,7 +44,7 @@ const Thumbnail = ({
   thumbnailType = 'thumbnail',
   onClickUntrack = () => {},
   onThumbnailContextMenu,
-  servicesManager
+  servicesManager,
 }: withAppTypes): React.ReactNode => {
   // TODO: We should wrap our thumbnail to create a "DraggableThumbnail", as
   // this will still allow for "drag", even if there is no drop target for the
@@ -77,13 +77,12 @@ const Thumbnail = ({
     const taskId = new URLSearchParams(location.search).get('taskId');
     await supabaseClient.rpc('hd_create_notification', {
       p_content: `${user.email} has requested for deleting segment: ${description} in task: ${taskId}`,
-      p_ref_id: null,
+      p_ref_id: seriesInstanceUID,
       p_type: 'SEGMENT_REQUEST_REMOVE',
     });
     servicesManager.services.uiNotificationService.show({
       title: 'Request remove',
-      message:
-        'Request removing is sent to admin',
+      message: 'Request removing is sent to admin',
       type: 'success',
       duration: 3000,
     });
@@ -574,6 +573,7 @@ const Thumbnail = ({
 };
 
 Thumbnail.propTypes = {
+  seriesInstanceUID: PropTypes.string.isRequired,
   displaySetInstanceUID: PropTypes.string.isRequired,
   className: PropTypes.string,
   imageSrc: PropTypes.string,
