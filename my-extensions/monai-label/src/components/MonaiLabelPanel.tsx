@@ -19,7 +19,7 @@ import './MonaiLabelPanel.css';
 import AutoSegmentation from './actions/AutoSegmentation';
 import PointPrompts from './actions/PointPrompts';
 import ClassPrompts from './actions/ClassPrompts';
-import ActiveLearning from './actions/ActiveLearning';
+// import ActiveLearning from './actions/ActiveLearning'; // Hidden - requires multiple studies
 import MonaiLabelClient from '../services/MonaiLabelClient';
 import { hideNotification, getLabelColor } from '../utils/GenericUtils';
 import { Enums } from '@cornerstonejs/tools';
@@ -44,7 +44,7 @@ export default class MonaiLabelPanel extends Component {
   notification: any;
   settings;
   actions: {
-    activelearning: any;
+    // activelearning: any; // Hidden - requires multiple studies
     segmentation: any;
     pointprompts: any;
     classprompts: any;
@@ -62,7 +62,7 @@ export default class MonaiLabelPanel extends Component {
     this.notification = uiNotificationService;
     this.settings = React.createRef();
     this.actions = {
-      activelearning: React.createRef(),
+      // activelearning: React.createRef(), // Hidden - requires multiple studies
       segmentation: React.createRef(),
       pointprompts: React.createRef(),
       classprompts: React.createRef(),
@@ -661,7 +661,8 @@ export default class MonaiLabelPanel extends Component {
 
         {isDataReady && (
           <div className="tabs scrollbar" id="style-3">
-            <ActiveLearning
+            {/* ActiveLearning component hidden - requires multiple studies to function properly */}
+            {/* <ActiveLearning
               ref={this.actions['activelearning']}
               tabIndex={1}
               info={this.state.info}
@@ -670,10 +671,10 @@ export default class MonaiLabelPanel extends Component {
               onSelectActionTab={this.onSelectActionTab}
               onOptionsConfig={this.onOptionsConfig}
               getActiveViewportInfo={this.getActiveViewportInfo}
-            />
+            /> */}
             <AutoSegmentation
               ref={this.actions['segmentation']}
-              tabIndex={2}
+              tabIndex={1}
               info={this.state.info}
               client={this.client}
               updateView={this.updateView}
@@ -683,7 +684,7 @@ export default class MonaiLabelPanel extends Component {
             />
             <PointPrompts
               ref={this.actions['pointprompts']}
-              tabIndex={3}
+              tabIndex={2}
               info={this.state.info}
               client={this.client}
               updateView={this.updateView}
@@ -695,7 +696,7 @@ export default class MonaiLabelPanel extends Component {
             />
             <ClassPrompts
               ref={this.actions['classprompts']}
-              tabIndex={4}
+              tabIndex={3}
               info={this.state.info}
               client={this.client}
               updateView={this.updateView}
@@ -707,13 +708,15 @@ export default class MonaiLabelPanel extends Component {
             />
             <SegmentationTools
               ref={this.actions['tools']}
-              tabIndex={5}
+              tabIndex={4}
               runAutoSegmentation={this._runAutoSegmentation}
               revert={this._revertToOriginal}
               servicesManager={this.props.servicesManager}
               commandsManager={this.props.commandsManager}
               extensionManager={this.props.extensionManager}
               onSelectActionTab={this.onSelectActionTab}
+              client={this.client}
+              getActiveViewportInfo={this.getActiveViewportInfo}
               />
             </div>
         )}
