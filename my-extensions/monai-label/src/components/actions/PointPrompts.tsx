@@ -346,11 +346,6 @@ export default class PointPrompts extends BaseTab {
             onSelectModel={this.onSelectModel}
             usage={
               <div style={{ fontSize: 'smaller' }}>
-                {/*<p>*/}
-                {/*  <input id="autorun" type="checkbox" />&nbsp;*/}
-                {/*  <span style={{ color: 'green' }}>Auto Run</span> on every*/}
-                {/*  click*/}
-                {/*</p>*/}
                 <br />
                 <p>Select an anatomy from the segments menu below.</p>
                 <p>To guide the inference, add foreground clicks:</p>
@@ -374,6 +369,8 @@ export default class PointPrompts extends BaseTab {
               </div>
             }
           />
+
+
           <div className="optionsTableContainer">
             <hr />
             <p>Available Organ(s):</p>

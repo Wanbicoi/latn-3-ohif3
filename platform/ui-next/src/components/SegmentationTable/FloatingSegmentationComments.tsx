@@ -35,6 +35,10 @@ export const FloatingSegmentationComments: React.FC<{
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [debouncedSegmentId, setDebouncedSegmentId] = useState(activeSegmentId);
+  const [isNoSegDismissed, setIsNoSegDismissed] = useState(() => {
+    // Check if user has dismissed the "No SEG Series" notification
+    return localStorage.getItem('ohif-no-seg-dismissed') === 'true';
+  });
 
   // Debounce segment ID changes to reduce API calls
   useEffect(() => {
@@ -387,6 +391,11 @@ export const FloatingSegmentationComments: React.FC<{
     }
   };
 
+  const dismissNoSegNotification = () => {
+    setIsNoSegDismissed(true);
+    localStorage.setItem('ohif-no-seg-dismissed', 'true');
+  };
+
   // Early return if missing required data
   if (!taskId) {
     return (
@@ -406,22 +415,34 @@ export const FloatingSegmentationComments: React.FC<{
     );
   }
 
-  if (!seriesInstanceUID) {
+  if (!seriesInstanceUID && !isNoSegDismissed) {
     return (
       <div className="fixed bottom-4 right-4 z-50">
         <div className="bg-yellow-900/90 backdrop-blur-sm border border-yellow-600 rounded-lg p-3 max-w-sm shadow-lg">
           <div className="flex items-center gap-2">
             <div className="text-yellow-400 text-lg">⚠️</div>
-            <div>
+            <div className="flex-1">
               <div className="text-yellow-200 font-semibold text-xs">No SEG Series</div>
               <div className="text-yellow-300 text-xs">
                 Comments require a segmentation series
               </div>
             </div>
+            <button
+              onClick={dismissNoSegNotification}
+              className="text-yellow-400 hover:text-yellow-200 transition-colors ml-2 p-1 rounded hover:bg-yellow-800/50"
+              title="Dismiss notification"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
     );
+  }
+
+  // Don't render anything if dismissed and no series
+  if (!seriesInstanceUID && isNoSegDismissed) {
+    return null;
   }
 
   // Don't render if segment is still debouncing to avoid API conflicts

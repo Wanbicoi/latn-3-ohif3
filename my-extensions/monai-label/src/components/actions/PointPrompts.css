@@ -33,3 +33,128 @@ limitations under the License.
   position: relative;
   top: 2px;
 }
+
+/* Smart Propagation Styles */
+.smart-propagation-container {
+  margin: 15px 0;
+  padding: 10px;
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.smart-propagation-header {
+  color: #4CAF50;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.smart-propagation-instructions {
+  font-size: 12px;
+  color: #fff;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.smart-propagation-instructions p {
+  margin: 2px 0;
+  padding-left: 8px;
+  position: relative;
+}
+
+.smart-propagation-instructions p:before {
+  content: "▶";
+  position: absolute;
+  left: 0;
+  color: #4CAF50;
+  font-size: 10px;
+}
+
+.smart-propagation-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.smart-propagation-main-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.smart-propagation-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  outline: none;
+}
+
+.smart-propagation-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.smart-propagation-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.smart-propagation-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+.smart-propagation-btn.start {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+}
+
+.smart-propagation-btn.start.active {
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
+}
+
+.smart-propagation-btn.end {
+  background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+}
+
+.smart-propagation-btn.end.active {
+  background: linear-gradient(135deg, #FF9800 0%, #E65100 100%);
+  box-shadow: 0 0 8px rgba(255, 152, 0, 0.5);
+}
+
+.smart-propagation-btn.propagate {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  font-weight: bold;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.smart-propagation-btn.reset {
+  background: linear-gradient(135deg, #f44336 0%, #D32F2F 100%);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.smart-propagation-status {
+  font-size: 11px;
+  color: #4CAF50;
+  text-align: center;
+  margin-top: 8px;
+  padding: 6px;
+  background: rgba(76, 175, 80, 0.15);
+  border-radius: 4px;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  font-weight: 500;
+}
