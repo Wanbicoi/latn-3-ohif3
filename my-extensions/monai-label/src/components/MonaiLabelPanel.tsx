@@ -555,6 +555,11 @@ export default class MonaiLabelPanel extends Component {
         segmentationId: '1',
       });
       console.log("✅ Updated the segmentation's scalar data successfully");
+      
+      // 🎯 NEW: Filter and show only active segments with data
+      setTimeout(() => {
+        this.filterActiveSegments(convertedData, labelNames, labels);
+      }, 500);
     } else {
       console.error('❌ Volume Object is NOT In Cache - Cannot update segmentation');
       console.log('🔧 Attempting to check available segmentations...');
@@ -567,6 +572,106 @@ export default class MonaiLabelPanel extends Component {
       } else {
         console.log('🚫 No segmentations found in service');
       }
+    }
+  };
+
+  // 🎯 NEW: Function to filter and show only segments with actual data
+  filterActiveSegments = (segmentationData, labelNames, processedLabels) => {
+    try {
+      const { segmentationService } = this.props.servicesManager.services;
+      
+      // Find which segment indices actually have data
+      const uniqueValues = [...new Set(segmentationData)];
+      const activeSegmentIndices = uniqueValues.filter(val => val > 0);
+      
+      console.log('🔍 Active segment analysis:', {
+        totalVoxels: segmentationData.length,
+        uniqueValues: uniqueValues,
+        activeSegmentIndices: activeSegmentIndices,
+        processedLabels: processedLabels,
+        labelNames: labelNames
+      });
+      
+      // Get current segmentation
+      const segmentation = segmentationService.getSegmentation('1');
+      if (!segmentation || !segmentation.config || !segmentation.config.segments) {
+        console.warn('Cannot access segmentation config for filtering');
+        return;
+      }
+      
+      const allSegments = segmentation.config.segments;
+      const segmentsToShow = new Set();
+      const segmentsToHide = new Set();
+      
+      // Determine which segments to show/hide
+      Object.keys(allSegments).forEach(segmentIndex => {
+        const segmentIndexNum = parseInt(segmentIndex);
+        const segment = allSegments[segmentIndex];
+        
+        if (activeSegmentIndices.includes(segmentIndexNum)) {
+          // This segment has data - show it
+          segmentsToShow.add(segmentIndexNum);
+          console.log(`✅ Showing segment ${segmentIndexNum}: ${segment.label} (has data)`);
+        } else {
+          // This segment has no data - hide it
+          segmentsToHide.add(segmentIndexNum);
+          console.log(`🙈 Hiding segment ${segmentIndexNum}: ${segment.label} (no data)`);
+        }
+      });
+      
+      // Apply visibility changes
+      const { viewport } = this.getActiveViewportInfo();
+      if (!viewport || !viewport.viewportId) {
+        console.warn('No viewport available for segment visibility changes');
+        return;
+      }
+      
+      // Get all viewports that have this segmentation to update visibility across all
+      const viewportIds = segmentationService.getViewportIdsWithSegmentation('1');
+      console.log('🖥️ Updating visibility across viewports:', viewportIds);
+      
+      viewportIds.forEach(viewportId => {
+        // Hide segments with no data
+        segmentsToHide.forEach(segmentIndex => {
+          try {
+            segmentationService.setSegmentVisibility(viewportId, '1', segmentIndex, false);
+          } catch (error) {
+            console.warn(`Failed to hide segment ${segmentIndex} in viewport ${viewportId}:`, error);
+          }
+        });
+        
+        // 🗑️ Remove segments with no data from segmentation config entirely
+        segmentsToHide.forEach(segmentIndex => {
+          try {
+            segmentationService.removeSegment('1', segmentIndex);
+          } catch (error) {
+            console.warn(`Failed to remove segment ${segmentIndex}:`, error);
+          }
+        });
+      });
+      
+      // Show notification about filtering
+      if (segmentsToShow.size > 0) {
+        const activeLabels = [];
+        segmentsToShow.forEach(segmentIndex => {
+          const segment = allSegments[segmentIndex];
+          if (segment && segment.label) {
+            activeLabels.push(segment.label);
+          }
+        });
+        
+        this.notification.show({
+          title: 'Segmentation Results',
+          message: `Found ${segmentsToShow.size} active segment(s): ${activeLabels.join(', ')}. Hidden ${segmentsToHide.size} empty segments.`,
+          type: 'success',
+          duration: 5000,
+        });
+      }
+      
+      console.log(`🎯 Segmentation filtering completed: ${segmentsToShow.size} shown, ${segmentsToHide.size} hidden`);
+      
+    } catch (error) {
+      console.error('❌ Error in filterActiveSegments:', error);
     }
   };
 
