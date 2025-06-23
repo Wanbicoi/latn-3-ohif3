@@ -631,23 +631,29 @@ export default class MonaiLabelPanel extends Component {
       console.log('🖥️ Updating visibility across viewports:', viewportIds);
       
       viewportIds.forEach(viewportId => {
+        // Show segments with data
+        segmentsToShow.forEach(segmentIndex => {
+          try {
+            segmentationService.setSegmentVisibility(viewportId, '1', segmentIndex, true);
+            console.log(`👁️ Showing segment ${segmentIndex} (has data)`);
+          } catch (error) {
+            console.warn(`Failed to show segment ${segmentIndex} in viewport ${viewportId}:`, error);
+          }
+        });
+        
         // Hide segments with no data
         segmentsToHide.forEach(segmentIndex => {
           try {
             segmentationService.setSegmentVisibility(viewportId, '1', segmentIndex, false);
+            console.log(`🙈 Hiding segment ${segmentIndex} (no data)`);
           } catch (error) {
             console.warn(`Failed to hide segment ${segmentIndex} in viewport ${viewportId}:`, error);
           }
         });
         
-        // 🗑️ Remove segments with no data from segmentation config entirely
-        segmentsToHide.forEach(segmentIndex => {
-          try {
-            segmentationService.removeSegment('1', segmentIndex);
-          } catch (error) {
-            console.warn(`Failed to remove segment ${segmentIndex}:`, error);
-          }
-        });
+        // 🙈 Keep segments but hide them (don't remove from config to preserve labels)
+        // Removing segments would delete labels that might get data later
+        console.log('📝 Keeping all segments in config, only hiding empty ones for cleaner UI');
       });
       
       // Show notification about filtering
@@ -662,13 +668,13 @@ export default class MonaiLabelPanel extends Component {
         
         this.notification.show({
           title: 'Segmentation Results',
-          message: `Found ${segmentsToShow.size} active segment(s): ${activeLabels.join(', ')}. Hidden ${segmentsToHide.size} empty segments.`,
+          message: `Found ${segmentsToShow.size} active segment(s): ${activeLabels.join(', ')}. ${segmentsToHide.size} empty segments hidden from view.`,
           type: 'success',
           duration: 5000,
         });
       }
       
-      console.log(`🎯 Segmentation filtering completed: ${segmentsToShow.size} shown, ${segmentsToHide.size} hidden`);
+      console.log(`🎯 Segmentation filtering completed: ${segmentsToShow.size} shown, ${segmentsToHide.size} hidden (but preserved in config)`);
       
     } catch (error) {
       console.error('❌ Error in filterActiveSegments:', error);

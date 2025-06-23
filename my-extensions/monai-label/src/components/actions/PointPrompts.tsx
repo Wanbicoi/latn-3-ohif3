@@ -283,9 +283,10 @@ export default class PointPrompts extends BaseTab {
     const { info } = this.props;
     const models = Object.keys(info.data.models).filter(
       (m) =>
-        info.data.models[m].type === 'deepgrow' ||
+        (info.data.models[m].type === 'deepgrow' ||
         info.data.models[m].type === 'deepedit' ||
-        info.data.models[m].type === 'vista3d'
+        info.data.models[m].type === 'vista3d') &&
+        m !== 'sw_fastedit'  // Hide sw_fastedit to avoid confusion with tumor detection
     );
     return models;
   }

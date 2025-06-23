@@ -523,10 +523,10 @@ export default class SliceInterpolation extends BaseTab {
     const { info } = this.props;
     const models = Object.keys(info.data.models).filter(
       (m) =>
-        info.data.models[m].type === 'deepedit' ||
+        (info.data.models[m].type === 'deepedit' ||
         info.data.models[m].type === 'vista3d' ||
-        info.data.models[m].type === 'sw_fastedit' ||
-        (m === 'sam_2d' && info.data.models[m].type === 'deepgrow') // SAM_2D is actually type deepgrow
+        (m === 'sam_2d' && info.data.models[m].type === 'deepgrow')) &&  // SAM_2D is actually type deepgrow
+        m !== 'sw_fastedit'  // Hide sw_fastedit - doctors should use SAM for tumor detection
     );
     return models;
   }

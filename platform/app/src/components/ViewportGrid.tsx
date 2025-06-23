@@ -258,7 +258,7 @@ function ViewerViewportGrid(props: withAppTypes) {
           return;
         }
 
-        if (event) {
+        if (event && event.type !== 'wheel') {
           event.preventDefault();
           event.stopPropagation();
         }

@@ -300,7 +300,8 @@ const commandsModule = ({
 
       const representations = segmentationService.getRepresentationsForSegmentation(segmentationId);
 
-      Object.entries(segmentation.segments).forEach(([segmentIndex, segment]) => {
+      Object.entries(segmentation.segments).forEach(([segmentIndexStr, segment]) => {
+        const segmentIndex = Number(segmentIndexStr);
         // segmentation service already has a color for each segment
         if (!segment) {
           return;

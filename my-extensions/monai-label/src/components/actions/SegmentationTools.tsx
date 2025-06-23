@@ -31,21 +31,20 @@ export default class SegmentationTools extends BaseTab {
           Segmentation Tools
         </label>
         <div className="tab-content" style={{ width: '100%' }}>
-          {/* Usage Instructions */}
+          {/* Note */}
           <div className="mb-4 p-3 border border-blue-500 rounded bg-blue-900 bg-opacity-20">
             <h4 className="text-sm font-semibold mb-2 text-blue-200 flex items-center">
               <span className="mr-2">ℹ️</span>
-              Usage Instructions
+              Note
             </h4>
-            <div className="text-xs text-blue-100 space-y-1">
-              <p><strong>Step 1:</strong> Connect to AI Server first using the settings above</p>
-              <p><strong>Step 2:</strong> Switch to COMMON mode for optimal functionality</p>
-              <p><strong>Step 3:</strong> Drag and drop labels into view (MPR, Axial, Sagittal, Coronal)</p>
-              <p><strong>Step 4:</strong> Use AI Segment for automatic segmentation</p>
-            </div>
             <div className="mt-2 p-2 bg-yellow-900 bg-opacity-30 rounded border-l-2 border-yellow-500">
               <p className="text-xs text-yellow-200">
                 <strong>Important:</strong> AI Server connection is required before using segmentation features.
+              </p>
+            </div>
+            <div className="mt-2 p-2 bg-blue-900 bg-opacity-30 rounded border-l-2 border-orange-500">
+              <p className="text-xs text-orange-200">
+                <strong>Medical Safety Protocol:</strong> Page reload after each case ensures proper memory cleanup, prevents cross-case data contamination, and maintains optimal AI model performance for accurate diagnosis.
               </p>
             </div>
           </div>
