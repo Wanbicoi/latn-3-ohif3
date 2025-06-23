@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import classnames from 'classnames';
 import { useDrag } from 'react-dnd';
@@ -11,10 +11,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '../DropdownMenu';
+import { Dialog, ButtonEnums } from '@ohif/ui';
 // import { SeriesDownloadButton } from '../SegmentationTable/SeriesDownloadButton';
 import { toast } from '../Sonner';
 import { supabaseClient } from '../../lib/utils';
+
+interface IUserProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+}
 
 /**
  * Display a thumbnail for a display set.
@@ -45,7 +54,7 @@ const Thumbnail = ({
   onClickUntrack = () => {},
   onThumbnailContextMenu,
   servicesManager,
-}: withAppTypes): React.ReactNode => {
+}): React.ReactNode => {
   // TODO: We should wrap our thumbnail to create a "DraggableThumbnail", as
   // this will still allow for "drag", even if there is no drop target for the
   // specified item.
@@ -58,6 +67,37 @@ const Thumbnail = ({
   });
 
   const [lastTap, setLastTap] = useState(0);
+  const [userProfile, setUserProfile] = useState<IUserProfile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Fetch user profile and role on component mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user?.id) {
+          const { data: profileData, error } = await supabaseClient
+            .from('hd_profile_list')
+            .select('id, first_name, last_name, role')
+            .eq('id', user.id)
+            .single();
+
+          if (profileData && !error) {
+            setUserProfile(profileData);
+            setIsAdmin(profileData.role === 'admin');
+          } else {
+            // Fallback: if no profile found, assume not admin
+            setIsAdmin(false);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+        setIsAdmin(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   const handleTouchEnd = e => {
     const currentTime = new Date().getTime();
@@ -76,16 +116,111 @@ const Thumbnail = ({
     } = await supabaseClient.auth.getUser();
     const taskId = new URLSearchParams(location.search).get('taskId');
     await supabaseClient.rpc('hd_create_notification', {
-      p_content: `${user.email} has requested for deleting segment: ${description} in task: ${taskId}`,
+      p_content: `${user.email} has requested clinical review for segment: ${description} in task: ${taskId}`,
       p_ref_id: seriesInstanceUID,
       p_type: 'SEGMENT_REQUEST_REMOVE',
     });
     servicesManager.services.uiNotificationService.show({
-      title: 'Request remove',
-      message: 'Request removing is sent to admin',
+      title: 'Clinical Review Requested',
+      message: 'Your removal request has been submitted for administrative review',
       type: 'success',
-      duration: 3000,
+      duration: 4000,
     });
+  };
+
+  const handleDeleteClick = () => {
+    if (isAdmin) {
+      // Admin can delete directly - show beautiful confirmation dialog
+      const dialogId = 'delete-segmentation-confirm';
+      const { uiDialogService } = servicesManager.services;
+      
+      uiDialogService.create({
+        id: dialogId,
+        centralize: true,
+        isDraggable: false,
+        showOverlay: true,
+        content: Dialog,
+        contentProps: {
+          title: '🗑️ Delete Segmentation',
+          body: () => (
+            <div className="bg-primary-dark p-6 text-white">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
+                    <Icons.Trash className="w-6 h-6 text-red-400" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-lg font-semibold text-white mb-3">
+                    Are you sure you want to delete this segmentation?
+                  </p>
+                  <div className="bg-secondary-dark p-4 rounded-lg mb-4">
+                    <div className="text-sm text-gray-300 mb-2">
+                      <span className="font-medium text-blue-400">Series:</span> {description}
+                    </div>
+                    <div className="text-sm text-gray-300 mb-2">
+                      <span className="font-medium text-blue-400">Modality:</span> {modality}
+                    </div>
+                    <div className="text-sm text-gray-300">
+                      <span className="font-medium text-blue-400">Series Number:</span> {seriesNumber}
+                    </div>
+                  </div>
+                  <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3">
+                    <p className="text-sm text-red-200">
+                      ⚠️ <strong>Warning:</strong> This action cannot be undone. All segmentation data will be permanently removed from the system.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ),
+          actions: [
+            {
+              id: 'cancel',
+              text: 'Cancel',
+              type: ButtonEnums.type.secondary,
+            },
+            {
+              id: 'delete',
+              text: 'Delete Permanently',
+              type: ButtonEnums.type.primary,
+              classes: ['bg-red-600', 'hover:bg-red-700', 'border-red-600'],
+            },
+          ],
+          onClose: () => uiDialogService.dismiss({ id: dialogId }),
+          onSubmit: async ({ action }) => {
+            switch (action.id) {
+              case 'delete':
+                onReject();
+                uiDialogService.dismiss({ id: dialogId });
+                // Show success notification
+                servicesManager.services.uiNotificationService.show({
+                  title: 'Segmentation Deleted',
+                  message: `Successfully deleted: ${description}`,
+                  type: 'success',
+                  duration: 3000,
+                });
+                break;
+              case 'cancel':
+                uiDialogService.dismiss({ id: dialogId });
+                break;
+            }
+          },
+        },
+      });
+    } else {
+      // Non-admin users get guidance message
+      const fullName = userProfile 
+        ? `${userProfile.first_name} ${userProfile.last_name}`.trim()
+        : 'Doctor';
+        
+      servicesManager.services.uiNotificationService.show({
+        title: 'Administrative Permission Required',
+        message: `${fullName}, to delete this segmentation, please use "Clinical Review Request" above to submit a removal request to the administrator.`,
+        type: 'info',
+        duration: 6000,
+      });
+    }
   };
 
   // Download handler for SEG series
@@ -363,39 +498,56 @@ const Thumbnail = ({
                 <DropdownMenuContent
                   hideWhenDetached
                   align="start"
+                  className="w-56"
                 >
-                  <DropdownMenuItem
-                    onSelect={handleRequestRemove}
-                    className="gap-[6px]"
-                  >
-                    <Icons.Trash className="h-4 w-4" />
-                    Request remove
-                  </DropdownMenuItem>
+                  {/* Clinical Review Request - Only for non-admin users */}
+                  {!isAdmin && (
+                    <>
+                      <DropdownMenuItem
+                        onSelect={handleRequestRemove}
+                        className="gap-[6px] text-blue-400 hover:text-blue-300"
+                      >
+                        <Icons.Trash className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Clinical Review Request</div>
+                          <div className="text-xs text-gray-400">Request admin approval for removal</div>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
 
                   {/* Download Series - Only for SEG modality */}
                   {modality === 'SEG' && (
                     <DropdownMenuItem
                       onSelect={handleDownloadSeries}
-                      className="gap-[6px]"
+                      className="gap-[6px] text-green-400 hover:text-green-300"
                     >
                       <Icons.Download className="h-4 w-4" />
-                      Download Series
+                      <div>
+                        <div className="font-medium">Download Series</div>
+                        <div className="text-xs text-gray-400">Export segmentation data</div>
+                      </div>
                     </DropdownMenuItem>
                   )}
                   
-                  {/* Delete SEG Series */}
+                  {/* Delete SEG Series - Always show but behavior differs */}
                   {modality === 'SEG' && (
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        if (window.confirm(`Are you sure you want to delete this SEG series: ${description}?`)) {
-                          onReject();
-                        }
-                      }}
-                      className="gap-[6px] text-red-500 hover:text-red-600"
-                    >
-                      <Icons.Trash className="h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={handleDeleteClick}
+                        className="gap-[6px] text-red-400 hover:text-red-300"
+                      >
+                        <Icons.Trash className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Delete</div>
+                          <div className="text-xs text-gray-400">
+                            {isAdmin ? 'Permanently remove segmentation' : 'Requires admin permission'}
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -508,39 +660,59 @@ const Thumbnail = ({
                 <Icons.More />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent hideWhenDetached>
-              <DropdownMenuItem
-                onSelect={handleRequestRemove}
-                className="gap-[6px]"
-              >
-                <Icons.Trash className="h-4 w-4" />
-                Request remove
-              </DropdownMenuItem>
+            <DropdownMenuContent 
+              hideWhenDetached
+              className="w-56"
+            >
+              {/* Clinical Review Request - Only for non-admin users */}
+              {!isAdmin && (
+                <>
+                  <DropdownMenuItem
+                    onSelect={handleRequestRemove}
+                    className="gap-[6px] text-blue-400 hover:text-blue-300"
+                  >
+                    <Icons.Trash className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">Clinical Review Request</div>
+                      <div className="text-xs text-gray-400">Request admin approval for removal</div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
               {/* Download Series - Only for SEG modality */}
               {modality === 'SEG' && (
                 <DropdownMenuItem
                   onSelect={handleDownloadSeries}
-                  className="gap-[6px]"
+                  className="gap-[6px] text-green-400 hover:text-green-300"
                 >
                   <Icons.Download className="h-4 w-4" />
-                  Download Series
+                  <div>
+                    <div className="font-medium">Download Series</div>
+                    <div className="text-xs text-gray-400">Export segmentation data</div>
+                  </div>
                 </DropdownMenuItem>
               )}
               
-              {/* Delete SEG Series */}
-              {modality === 'SEG' && (
-                <DropdownMenuItem
-                  onSelect={() => {
-                    if (window.confirm(`Are you sure you want to delete this SEG series: ${description}?`)) {
-                      onReject();
-                    }
-                  }}
-                  className="gap-[6px] text-red-500 hover:text-red-600"
-                >
-                  <Icons.Trash className="h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              )}
+                             {/* Delete SEG Series - Always show but behavior differs */}
+               {modality === 'SEG' && (
+                 <>
+                   <DropdownMenuSeparator />
+                   <DropdownMenuItem
+                     onSelect={handleDeleteClick}
+                     className="gap-[6px] text-red-400 hover:text-red-300"
+                   >
+                     <Icons.Trash className="h-4 w-4" />
+                     <div>
+                       <div className="font-medium">Delete</div>
+                       <div className="text-xs text-gray-400">
+                         {isAdmin ? 'Permanently remove segmentation' : 'Requires admin permission'}
+                       </div>
+                     </div>
+                   </DropdownMenuItem>
+                 </>
+               )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
