@@ -4,7 +4,7 @@ import { Label, Button } from '../../components';
 import { useSegmentationTableContext } from './SegmentationTableContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabaseClient } from '../../lib/utils';
-import { Eye, Check, X as XIcon, MessageCircle, ChevronUp, ChevronDown, Minimize2 } from 'lucide-react';
+import { Eye, Check, X as XIcon, MessageCircle, ChevronUp, ChevronDown, Minimize2, ExternalLink } from 'lucide-react';
 
 // Get taskId from URL parameters with fallback
 const getTaskId = () => {
@@ -500,6 +500,20 @@ export const FloatingSegmentationComments: React.FC<{
                 title="Minimize"
               >
                 <Minimize2 className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => {
+                  if (taskId && seriesInstanceUID) {
+                    const base = window.location.pathname.startsWith('/ohif3') ? '/ohif3' : '';
+                    // Use segment name in URL path, taskId as query param
+                    const url = `${base}/comments/${encodeURIComponent(segmentId)}?taskId=${taskId}&series=${encodeURIComponent(seriesInstanceUID)}`;
+                    window.open(url, '_blank');
+                  }
+                }}
+                className="p-1 hover:bg-blue-700 rounded text-blue-200 hover:text-white transition-colors"
+                title="Open Workspace"
+              >
+                <ExternalLink className="w-4 h-4" />
               </Button>
             </div>
           </div>

@@ -12,6 +12,7 @@ import buildModeRoutes from './buildModeRoutes';
 import PrivateRoute from './PrivateRoute';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
+import CommentsWorkspace from './CommentsWorkspace';
 
 const NotFoundServer = ({
   message = 'Unable to query for studies at this time. Check your data source configuration or network connection',
@@ -74,6 +75,11 @@ const bakedInRoutes = [
     path: '/localbasic',
     children: Local.bind(null, { modePath: 'viewer/dicomlocal' }),
   },
+  {
+    path: '/comments/:segmentName',
+    children: CommentsWorkspace,
+    private: true,
+  },
 ];
 
 // NOT FOUND (404)
@@ -108,7 +114,7 @@ const createRoutes = ({
     props: { children: WorkList, servicesManager, extensionManager },
   };
 
-  const customRoutes = customizationService.getGlobalCustomization('customRoutes');
+  const customRoutes = (customizationService.getGlobalCustomization('customRoutes') as any) || {};
   const allRoutes = [
     ...routes,
     ...(showStudyList ? [WorkListRoute] : []),

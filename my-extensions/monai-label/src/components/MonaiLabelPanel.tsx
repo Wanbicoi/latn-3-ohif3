@@ -19,7 +19,6 @@ import './MonaiLabelPanel.css';
 import AutoSegmentation from './actions/AutoSegmentation';
 import PointPrompts from './actions/PointPrompts';
 import ClassPrompts from './actions/ClassPrompts';
-import SliceInterpolation from './actions/SliceInterpolation';
 // import ActiveLearning from './actions/ActiveLearning'; // Hidden - requires multiple studies
 import MonaiLabelClient from '../services/MonaiLabelClient';
 import { hideNotification, getLabelColor } from '../utils/GenericUtils';
@@ -49,7 +48,6 @@ export default class MonaiLabelPanel extends Component {
     segmentation: any;
     pointprompts: any;
     classprompts: any;
-    sliceinterpolation: any;
     tools: any;
   };
   serverURI = 'http://127.0.0.1:8000';
@@ -68,7 +66,6 @@ export default class MonaiLabelPanel extends Component {
       segmentation: React.createRef(),
       pointprompts: React.createRef(),
       classprompts: React.createRef(),
-      sliceinterpolation: React.createRef(),
       tools: React.createRef(),
     };
 
@@ -811,18 +808,6 @@ export default class MonaiLabelPanel extends Component {
             <ClassPrompts
               ref={this.actions['classprompts']}
               tabIndex={3}
-              info={this.state.info}
-              client={this.client}
-              updateView={this.updateView}
-              onSelectActionTab={this.onSelectActionTab}
-              onOptionsConfig={this.onOptionsConfig}
-              getActiveViewportInfo={this.getActiveViewportInfo}
-              servicesManager={this.props.servicesManager}
-              commandsManager={this.props.commandsManager}
-            />
-            <SliceInterpolation
-              ref={this.actions['sliceinterpolation']}
-              tabIndex={4}
               info={this.state.info}
               client={this.client}
               updateView={this.updateView}
