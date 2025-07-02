@@ -45,6 +45,15 @@ interface SegmentInfo {
   segmentLabel?: string;
 }
 
+// 🎨 Toast Notification Interface
+interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message?: string;
+  duration?: number;
+}
+
 const SegmentComments: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -81,9 +90,35 @@ const SegmentComments: React.FC = () => {
     show: false, 
     commentId: null
   });
+  
+  // 🎨 Toast Notification State
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   // Refs
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // 🎨 Toast Notification Functions
+  const showToast = (type: Toast['type'], title: string, message?: string, duration = 5000) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    const newToast: Toast = { id, type, title, message, duration };
+    
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto remove after duration
+    setTimeout(() => {
+      removeToast(id);
+    }, duration);
+  };
+  
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+  
+  // Toast utility shortcuts
+  const showError = (title: string, message?: string) => showToast('error', title, message);
+  const showSuccess = (title: string, message?: string) => showToast('success', title, message);
+  const showWarning = (title: string, message?: string) => showToast('warning', title, message);
+  const showInfo = (title: string, message?: string) => showToast('info', title, message);
 
   // Enhanced Supabase Configuration  
   const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
@@ -343,7 +378,7 @@ const SegmentComments: React.FC = () => {
 
         if (!workflowError) {
           // ✅ SUCCESS: Function handled everything (auth, insert, workflow progression)
-          console.log('✅ Comment submitted via workflow function');
+          console.log('✅ Comment submitted successfully via workflow function');
           
           // Reload comments to show the new one
           await loadComments();
@@ -352,12 +387,21 @@ const SegmentComments: React.FC = () => {
           setNewComment('');
           setCommentPriority('medium');
           
-          // Show success message
-          alert('✅ Comment submitted successfully! Workflow may have progressed.');
           setIsLoading(false);
           return;
         } else {
           console.warn('⚠️ Workflow function failed:', workflowError);
+          
+          // Check if it's a permission error - STOP immediately, no fallback
+          if (workflowError.message && workflowError.message.includes('permission')) {
+            showError(
+              'Permission Denied',
+              'You don\'t have permission to comment on this task. Please contact admin to setup your permissions.'
+            );
+            setIsLoading(false);
+            return;
+          }
+          
           throw new Error(workflowError.message || 'Workflow function failed');
         }
       } catch (workflowErr) {
@@ -387,7 +431,7 @@ const SegmentComments: React.FC = () => {
         setComments([...comments, localComment]);
         setNewComment('');
         setCommentPriority('medium');
-        alert('💾 Comment saved locally. Please login to sync to database.');
+        console.log('💾 Comment saved locally. Please login to sync to database.');
         setIsLoading(false);
         return;
       }
@@ -451,12 +495,12 @@ const SegmentComments: React.FC = () => {
       setNewComment('');
       setCommentPriority('medium');
       
-      alert('⚠️ Comment saved via fallback method (workflow progression skipped)');
+      console.log('⚠️ Comment saved via fallback method (workflow progression skipped)');
       
     } catch (error) {
       console.error('❌ All comment submission methods failed:', error);
       
-      // 💾 LAST RESORT: Local storage
+      // 💾 LAST RESORT: Local storage for network/server errors only
       const emergencyComment: Comment = {
         id: `emergency-${Date.now()}`,
         author_id: 'emergency-user',
@@ -476,7 +520,11 @@ const SegmentComments: React.FC = () => {
       setNewComment('');
       setCommentPriority('medium');
       
-      alert(`💾 Comment saved locally due to error: ${error.message || 'Unknown error'}`);
+      console.log('💾 Comment saved locally due to error:', error.message || 'Unknown error');
+      showWarning(
+        'Connection Error',
+        'Comment saved locally and will sync when connection is restored.'
+      );
     }
 
     setIsLoading(false);
@@ -2122,6 +2170,100 @@ const SegmentComments: React.FC = () => {
           </div>
         </div>
       )}
+      
+      {/* 🎨 Toast Notification Container - Bottom Right */}
+      <div className="fixed bottom-4 right-4 z-50 space-y-3 max-w-sm">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`
+              transform transition-all duration-300 ease-in-out
+              bg-white rounded-lg shadow-lg border-l-4 p-4 min-w-80
+              ${toast.type === 'error' ? 'border-red-500' : ''}
+              ${toast.type === 'success' ? 'border-green-500' : ''}
+              ${toast.type === 'warning' ? 'border-yellow-500' : ''}
+              ${toast.type === 'info' ? 'border-blue-500' : ''}
+            `}
+            style={{
+              animation: 'slideInRight 0.3s ease-out',
+            }}
+          >
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                {toast.type === 'error' && (
+                  <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+                {toast.type === 'success' && (
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+                {toast.type === 'warning' && (
+                  <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+                {toast.type === 'info' && (
+                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+              
+              <div className="ml-3 flex-1">
+                <h4 className={`text-sm font-semibold ${
+                  toast.type === 'error' ? 'text-red-800' : ''
+                }${toast.type === 'success' ? 'text-green-800' : ''
+                }${toast.type === 'warning' ? 'text-yellow-800' : ''
+                }${toast.type === 'info' ? 'text-blue-800' : ''
+                }`}>
+                  {toast.title}
+                </h4>
+                {toast.message && (
+                  <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                    {toast.message}
+                  </p>
+                )}
+              </div>
+              
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="ml-3 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Toast Animation Styles */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes slideInRight {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        `
+      }} />
     </div>
   );
 };

@@ -391,7 +391,7 @@ function ViewerHeader({
               }}
               className="[&_button]:w-10 [&_button]:h-10 [&_button]:rounded-xl [&_button]:transition-all [&_button]:duration-300 [&_button]:hover:bg-slate-700 [&_button]:hover:scale-110 [&_button]:border-slate-600/50 [&_button]:flex [&_button]:items-center [&_button]:justify-center [&_button]:shadow-md [&_button]:hover:shadow-lg [&_button]:text-slate-300 [&_button]:hover:text-emerald-400 [&_button]:bg-slate-700/50"
             >
-              <Toolbar servicesManager={servicesManager} />
+        <Toolbar servicesManager={servicesManager} />
             </div>
           </div>
         </div>
