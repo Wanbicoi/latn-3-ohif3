@@ -74,6 +74,7 @@ const SegmentComments: React.FC = () => {
   const [showReplies, setShowReplies] = useState<{[key: string]: boolean}>({});
   const [showEmojiPicker, setShowEmojiPicker] = useState<{[key: string]: boolean}>({});
   const [showDropdown, setShowDropdown] = useState<{[key: string]: boolean}>({});
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   
   // Enhanced Delete System
   const [deleteConfirm, setDeleteConfirm] = useState<{show: boolean, commentId: string | null}>({
@@ -535,6 +536,35 @@ const SegmentComments: React.FC = () => {
     window.location.href = viewerUrl;
   };
 
+  // User dropdown handlers
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) {
+        console.error('❌ Logout error:', error);
+      }
+      // Redirect to login or home page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+      // Force redirect even if logout fails
+      window.location.href = '/';
+    }
+    setShowUserDropdown(false);
+  };
+
+  const handleProfile = () => {
+    // Navigate to profile page (implement as needed)
+    console.log('Navigate to profile');
+    setShowUserDropdown(false);
+  };
+
+  const handleSettings = () => {
+    // Navigate to settings page (implement as needed)
+    console.log('Navigate to settings');
+    setShowUserDropdown(false);
+  };
+
   // Filtered Comments
   const filteredComments = comments.filter(comment => {
     if (filterStatus === 'all') return true;
@@ -566,6 +596,19 @@ const SegmentComments: React.FC = () => {
       case 'mitl': return 'bg-pink-100 text-pink-800 border-pink-200';
       case 'system user': return 'bg-gray-100 text-gray-800 border-gray-200';
       default: return 'bg-blue-100 text-blue-800 border-blue-200';
+    }
+  };
+
+  // OHIF-style role gradient colors for dropdown
+  const getRoleGradientColor = (role?: string) => {
+    switch (role?.toLowerCase()) {
+      case 'admin': return 'from-red-400 to-red-500';
+      case 'reviewer': return 'from-purple-400 to-purple-500';
+      case 'annotator': return 'from-green-400 to-green-500';
+      case 'router': return 'from-orange-400 to-orange-500';
+      case 'mitl': return 'from-pink-400 to-pink-500';
+      case 'system user': return 'from-gray-400 to-gray-500';
+      default: return 'from-blue-400 to-blue-500';
     }
   };
 
@@ -783,6 +826,7 @@ const SegmentComments: React.FC = () => {
     const handleClickOutside = () => {
       setShowDropdown({});
       setShowEmojiPicker({});
+      setShowUserDropdown(false);
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
@@ -818,8 +862,8 @@ const SegmentComments: React.FC = () => {
     <div className="comment-page-wrapper min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       {/* Enhanced Professional Header */}
       <div className="header-section">
-        <div className="max-w-7xl mx-auto px-6 py-3">
-          <div className="flex items-center justify-between">
+        <div className="w-full px-6 py-3">
+          <div className="flex items-center justify-between w-full">
             {/* Left Section */}
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-white/20">
@@ -829,39 +873,156 @@ const SegmentComments: React.FC = () => {
               </div>
               
               <div>
-                <h1 className="text-lg font-bold text-white">AI-Powered Medical Review</h1>
-                <p className="text-blue-200 text-xs">Advanced Diagnostic Assessment Platform</p>
+                <h1 className="text-lg font-bold text-white" style={{color: '#ffffff'}}>AI-Powered Medical Review</h1>
+                <p className="text-blue-200 text-xs" style={{color: '#ffffff'}}>Advanced Diagnostic Assessment Platform</p>
               </div>
               
               <button 
                 onClick={handleBackToViewer}
                 className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/20 font-medium text-sm ml-6"
+                style={{color: '#ffffff'}}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                Viewer
+                <span style={{color: '#ffffff'}}>Viewer</span>
               </button>
             </div>
-            
-            {/* Right Section - User Info */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-2 py-1 bg-white/10 rounded-lg border border-white/20 backdrop-blur-sm">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-xs text-white font-medium">Connected</span>
-              </div>
-              
-              <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-1.5 backdrop-blur-sm border border-white/20">
-                <div className="text-right">
-                  <div className="text-white font-semibold text-sm">{user?.name || 'Medical Professional'}</div>
-                  <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs text-slate-300">{getRoleIcon(user?.role)}</span>
-                    <span className="text-xs text-emerald-300 font-medium">{user?.role || 'Professional'}</span>
+            {/* Right Section - OHIF-style User Dropdown */}
+            <div className="flex items-center">
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUserDropdown(!showUserDropdown);
+                  }}
+                  className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 transition-all duration-300 border border-slate-600/50 backdrop-blur-sm text-white hover:scale-[1.02] shadow-lg hover:shadow-xl group"
+                >
+                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getRoleGradientColor(user?.role)} flex items-center justify-center shadow-lg ring-2 ring-slate-600/30 group-hover:ring-slate-500/50 transition-all duration-300`}>
+                    <span className="text-white text-sm">
+                      {getRoleIcon(user?.role)}
+                    </span>
                   </div>
-                </div>
-                <div className={`w-8 h-8 bg-gradient-to-br ${getAvatarColor(user?.name || '')} rounded-xl flex items-center justify-center shadow-md ring-2 ring-white/30`}>
-                  <span className="text-white font-bold text-xs">{user?.name?.charAt(0) || 'U'}</span>
-                </div>
+                  <div className="hidden lg:flex flex-col items-start min-w-0 gap-0.5">
+                    <div className="text-sm font-semibold truncate max-w-32 text-white group-hover:text-emerald-300 transition-colors">
+                      {user?.name || 'Medical Professional'}
+                    </div>
+                    <div className="text-slate-400 text-xs font-medium bg-slate-700/50 px-2 py-0.5 rounded-md">
+                      {user?.role || 'Professional'}
+                    </div>
+                  </div>
+                  <div className="hidden md:block lg:hidden">
+                    <div className="text-xs font-semibold text-white">
+                      {user?.name?.split(' ')[0] || 'User'}
+                    </div>
+                  </div>
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform hidden md:block ${showUserDropdown ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                {/* OHIF-style Dropdown Menu */}
+                {showUserDropdown && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-[9998]" 
+                      onClick={() => setShowUserDropdown(false)} 
+                    />
+                    <div 
+                      className="absolute right-0 top-full mt-3 w-72 bg-slate-900 rounded-xl shadow-2xl border border-slate-600/50 z-[9999] overflow-hidden"
+                      style={{ 
+                        position: 'absolute',
+                        zIndex: 9999,
+                        maxHeight: '80vh',
+                        overflowY: 'auto',
+                        backgroundColor: '#0f172a'
+                      }}
+                    >
+                      {/* Header Section with Role-based Gradient */}
+                      <div className={`bg-gradient-to-r ${getRoleGradientColor(user?.role)} p-4`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-white/25 flex items-center justify-center shadow-lg">
+                            <span className="text-white text-lg font-semibold">
+                              {getRoleIcon(user?.role)}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white font-bold text-base truncate">{user?.name || 'Medical Professional'}</div>
+                            <div className="text-white/85 text-sm bg-white/20 px-2 py-0.5 rounded-md inline-block mt-1">
+                              {user?.role || 'Professional'}
+                            </div>
+                          </div>
+                        </div>
+                        {(taskId || segmentationId) && (
+                          <div className="text-white/80 text-xs mt-3 flex items-center gap-1 bg-white/10 px-2 py-1 rounded-md">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Active Task: {(taskId || segmentationId)?.substring(0, 8)}...
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Menu Section */}
+                      <div className="bg-slate-900" style={{ backgroundColor: '#0f172a' }}>
+                        {/* Status Info */}
+                        <div className="px-4 py-3 border-b border-slate-700/50">
+                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <div className={`w-2 h-2 rounded-full ${user?.id !== 'demo-user' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                            {user?.id !== 'demo-user' ? 'Authenticated Session' : 'Demo Session'}
+                          </div>
+                        </div>
+
+                        {/* Management Dashboard Button */}
+                        <button
+                          onClick={() => {
+                            window.open('http://localhost:3000', '_blank');
+                            setShowUserDropdown(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700/40 transition-colors text-left group border-none bg-transparent"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white font-medium text-sm">Management Dashboard</div>
+                            <div className="text-slate-400 text-xs">Project management panel</div>
+                          </div>
+                          <svg className="w-4 h-4 text-slate-500 group-hover:text-slate-300" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+
+                        {/* Divider */}
+                        <div className="border-t border-slate-700/50 mx-4"></div>
+
+                        {/* Logout Button */}
+                        <button
+                          onClick={() => {
+                            handleLogout();
+                            setShowUserDropdown(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-900/20 transition-colors text-left group border-none bg-transparent"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-md">
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-red-400 font-medium text-sm">Sign Out</div>
+                            <div className="text-red-400/60 text-xs">End current session</div>
+                          </div>
+                          <svg className="w-4 h-4 text-red-400/60 group-hover:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -881,18 +1042,18 @@ const SegmentComments: React.FC = () => {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-xl font-bold text-black">
-                    {getSegmentName()} - Clinical Assessment
+                  <h2 className="text-xl font-bold text-black" style={{color: '#000000'}}>
+                    Clinical Assessment
                   </h2>
                   <span className="series-badge">
                     🎯 DICOM Series
                   </span>
                 </div>
-                <p className="text-black font-medium text-sm">Professional medical annotation review & diagnostic discussion platform</p>
+                <p className="text-black font-medium text-sm" style={{color: '#000000'}}>Professional medical annotation review & diagnostic discussion platform</p>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-xl border border-slate-200 shadow-sm">
                 <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-black">Live Session</span>
+                <span className="text-sm font-medium text-black" style={{color: '#000000'}}>Live Session</span>
               </div>
             </div>
             
@@ -992,10 +1153,23 @@ const SegmentComments: React.FC = () => {
             {/* Header with Tabs */}
             <div className="p-6 border-b border-slate-200">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold text-black">
-                    {getSegmentName()} - Diagnostic Review
-                  </h3>
+                                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-xl transform hover:scale-105 transition-all duration-300">
+                        <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                        </svg>
+                      </div>
+                      <div className="flex flex-col">
+                        <h3 className="text-xl font-bold text-black">
+                          Diagnostic Review
+                        </h3>
+                        <p className="text-sm text-gray-500 font-medium">Advanced clinical analysis & assessment</p>
+                      </div>
+                      <span className="px-3 py-1.5 bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 rounded-full text-sm font-semibold shadow-md">
+                        📊 Clinical Data
+                      </span>
+                    </div>
                   <span className="comment-count-badge">
                     📊 {filteredComments.length} {filteredComments.length === 1 ? 'review' : 'reviews'}
                   </span>
@@ -1005,7 +1179,7 @@ const SegmentComments: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 rounded-xl border border-slate-200 shadow-sm">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium text-black">Live</span>
+                    <span className="text-sm font-medium text-black" style={{color: '#000000'}}>Live</span>
                   </div>
                   
                   {/* Filter dropdown */}
