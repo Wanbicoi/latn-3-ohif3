@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { createClient } from '@supabase/supabase-js';
 import { supabaseClient, testSupabaseConnection, debugDatabaseSchema, checkTablePermissions } from '../../../ui-next/src/lib/utils';
 
+// Enhanced Comment Interface with all features
 interface Comment {
   id: string;
   author_id: string;
@@ -9,10 +11,20 @@ interface Comment {
   author_role?: string;
   comment: string;
   created_at: string;
-  data?: any;
+  data?: {
+    status?: 'draft' | 'published' | 'resolved';
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+    parent_comment_id?: string; // For threading
+    reactions?: {
+      [reaction: string]: string[]; // reaction type -> array of user IDs
+    };
+    resolved_by?: string;
+    resolved_at?: string;
+  };
   status?: 'draft' | 'published' | 'resolved';
   priority?: 'low' | 'medium' | 'high' | 'critical';
   attachments?: string[];
+  replies?: Comment[]; // Nested replies
 }
 
 interface User {
@@ -27,8 +39,10 @@ interface SegmentInfo {
   segmentationId: string;
   segmentIndex: string;
   taskId: string;
-  studyInstanceUIDs: string;
+  studyInstanceUIDs: string; // Study level (parent)
+  seriesInstanceUID: string; // Series level (specific SEG)
   seriesDescription?: string;
+  segmentLabel?: string;
 }
 
 const SegmentComments: React.FC = () => {
@@ -51,181 +65,168 @@ const SegmentComments: React.FC = () => {
   const segmentIndex = searchParams.get('segmentIndex') || '1';
   const taskId = searchParams.get('taskId') || 'demo-task-id';
   const studyInstanceUIDs = searchParams.get('StudyInstanceUIDs') || searchParams.get('studyInstanceUIDs') || 'demo-study-uid';
+  const seriesInstanceUID = searchParams.get('seriesInstanceUID') || 'demo-series-uid';
 
-  // Function to get user role from project membership via task chain
+  // Enhanced State Management
+  const [replyMode, setReplyMode] = useState<{[key: string]: boolean}>({});
+  const [replyTexts, setReplyTexts] = useState<{[key: string]: string}>({});
+  const [isSubmittingReply, setIsSubmittingReply] = useState<{[key: string]: boolean}>({});
+  const [showReplies, setShowReplies] = useState<{[key: string]: boolean}>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState<{[key: string]: boolean}>({});
+  const [showDropdown, setShowDropdown] = useState<{[key: string]: boolean}>({});
+  
+  // Enhanced Delete System
+  const [deleteConfirm, setDeleteConfirm] = useState<{show: boolean, commentId: string | null}>({
+    show: false, 
+    commentId: null
+  });
+
+  // Refs
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Enhanced Supabase Configuration  
+  const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+  
+  const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+    db: {
+      schema: 'public_v2'
+    },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  });
+
+
+
+  // Helper Functions
+  const getSegmentName = () => {
+    return segmentationId || seriesInstanceUID || 'Unknown Segment';
+  };
+
   const getUserRole = async (userId: string, taskAssignmentId: string): Promise<string> => {
-    if (!taskAssignmentId || !userId) return 'Medical Professional';
-    
     try {
-      console.log(`🔍 Getting role for user ${userId} via task assignment ${taskAssignmentId}`);
+      console.log(`🔍 Getting role for user ${userId} in task assignment ${taskAssignmentId}`);
       
-      // Step 1: Get task_id from _task_assignments
-      const { data: taskAssignmentData } = await supabaseClient
+      // Step 1: Get task_id from _task_assignments table
+      const { data: taskAssignment, error: taskAssignError } = await supabaseClient
         .from('_task_assignments')
         .select('task_id')
         .eq('id', taskAssignmentId)
         .single();
-      
-      if (!taskAssignmentData?.task_id) {
-        console.log('❌ No task_id found in _task_assignments');
-        return 'Medical Professional';
+
+      if (taskAssignError || !taskAssignment?.task_id) {
+        console.log('⚠️ No task found, using default role');
+        return 'Clinical Specialist';
       }
+
+      console.log(`✅ Found task_id: ${taskAssignment.task_id}`);
       
-      console.log(`✅ Found task_id: ${taskAssignmentData.task_id}`);
-      
-      // Step 2: Get project_id from _tasks
-      const { data: taskData } = await supabaseClient
+      // Step 2: Get project_id from _tasks table
+      const { data: task, error: taskError } = await supabaseClient
         .from('_tasks')
         .select('project_id')
-        .eq('id', taskAssignmentData.task_id)
+        .eq('id', taskAssignment.task_id)
         .single();
-      
-      if (!taskData?.project_id) {
-        console.log('❌ No project_id found in _tasks');
-        return 'Medical Professional';
+
+      if (taskError || !task?.project_id) {
+        console.log('⚠️ No project found, using default role');
+        return 'Clinical Specialist';
       }
+
+      console.log(`✅ Found project_id: ${task.project_id}`);
       
-      console.log(`✅ Found project_id: ${taskData.project_id}`);
-      
-      // Step 3: Get role from _project_members using project_id
-      const { data: memberData } = await supabaseClient
+      // Step 3: Get role_id from _project_members table
+      const { data: projectMember, error: memberError } = await supabaseClient
         .from('_project_members')
-        .select(`
-          role_id,
-          _roles!_project_members_role_id_fkey (
-            name,
-            description
-          )
-        `)
-        .eq('project_id', taskData.project_id)
+        .select('role_id')
+        .eq('project_id', task.project_id)
         .eq('user_id', userId)
         .single();
-      
-      if (memberData?._roles) {
-        const roleData = Array.isArray(memberData._roles) ? memberData._roles[0] : memberData._roles;
-        const roleName = roleData?.name || 'Medical Professional';
-        console.log(`✅ Found role for user ${userId}: ${roleName}`);
-        return roleName;
+
+      if (memberError || !projectMember?.role_id) {
+        console.log('⚠️ No project membership found, using default role');
+        return 'Clinical Specialist';
       }
+
+      console.log(`✅ Found role_id: ${projectMember.role_id}`);
       
-      console.log('❌ No role found in _project_members');
-      return 'Medical Professional';
-      
+      // Step 4: Get role name from _roles table
+      const { data: role, error: roleError } = await supabaseClient
+        .from('_roles')
+        .select('name, description')
+        .eq('id', projectMember.role_id)
+        .single();
+
+      if (roleError || !role?.name) {
+        console.log('⚠️ Role not found, using default');
+        return 'Clinical Specialist';
+      }
+
+      const roleName = role.name || 'Clinical Specialist';
+      console.log(`✅ Final role for user ${userId}: ${roleName}`);
+      return roleName;
+       
     } catch (error) {
-      console.log(`❌ Error getting role for user ${userId}:`, error);
-      return 'Medical Professional';
+      console.error('❌ Error getting user role:', error);
+      return 'Clinical Specialist';
     }
   };
 
+  // Enhanced Data Loading
   useEffect(() => {
-    setSegmentInfo({
-      segmentationId,
-      segmentIndex,
-      taskId,
-      studyInstanceUIDs
-    });
-
     const loadData = async () => {
       try {
-        // Test database connection first
-        const connectionTest = await Promise.race([
-          testSupabaseConnection(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 10000))
-        ]) as { success: boolean; error?: string; data?: any };
+        const { data: userData, error: authError } = await supabaseClient.auth.getUser();
         
-        if (connectionTest && connectionTest.success) {
-          setConnectionStatus('connected');
-          setIsOfflineMode(false);
+        if (userData?.user) {
+          const actualTaskId = taskId || 'demo-task-id';
+          const role = await getUserRole(userData.user.id, actualTaskId);
           
-          // Note: Project ID is now resolved dynamically via task chain
-        } else {
-          throw new Error('Database connection failed');
-        }
-        
-        // Get current user with real role from database
-        try {
-          const { data: userData } = await supabaseClient.auth.getUser();
-          if (userData?.user) {
-            let userRole = 'Medical Professional';
-            let userName = userData.user.email || 'Medical User';
-            
-            // Get user's full name from _users table
-            try {
-              const { data: userProfile } = await supabaseClient
-                .from('_users')
-                .select('full_name')
-                .eq('id', userData.user.id)
-                .single();
-              
-              if (userProfile?.full_name) {
-                userName = userProfile.full_name;
-              }
-            } catch (e) {
-              console.log('Could not get user profile');
-            }
-            
-            // Get user's actual role using shared function
-            userRole = await getUserRole(userData.user.id, taskId);
-            
-            setUser({
-              id: userData.user.id,
-              name: userName,
-              email: userData.user.email,
-              role: userRole,
-            });
-            
-            console.log(`✅ Current user: ${userName} (${userRole})`);
-          }
-        } catch (authError) {
-          console.warn('⚠️ Auth failed, using fallback user:', authError);
-        }
+          const { data: userProfile } = await supabaseClient
+            .from('_users')
+            .select('full_name')
+            .eq('id', userData.user.id)
+            .single();
 
-        // Fetch comments from database
-        if (taskId && studyInstanceUIDs) {
-          await loadComments();
+          setUser({
+            id: userData.user.id,
+            name: userProfile?.full_name || userData.user.email || 'Medical User',
+            role: role,
+            email: userData.user.email || ''
+          });
+        } else {
+          setUser({
+            id: 'demo-user',
+            name: 'Dr. Demo',
+            role: 'Clinical Specialist',
+            email: 'demo@medical.com'
+          });
         }
-        
       } catch (error) {
-        console.error('❌ Failed to load data, switching to offline mode:', error);
-        setConnectionStatus('offline');
-        setIsOfflineMode(true);
-        
-        // Create offline demo data
-        const offlineComments: Comment[] = [
-          {
-            id: 'offline-demo-1',
-            author_id: 'offline-user',
-            author_name: 'Dr. Offline Demo',
-            author_role: 'Radiologist',
-            comment: '🔌 OFFLINE MODE: This is a demo comment. Working offline.',
-            created_at: new Date().toISOString(),
-            data: { priority: 'medium', status: 'published' },
-            status: 'published',
-            priority: 'medium'
-          }
-        ];
-        
-        setComments(offlineComments);
+        console.error('❌ Error loading user data:', error);
         setUser({
-          id: 'local-offline-user',
-          name: 'Dr. Offline',
-          role: 'Medical Professional (Offline)',
+          id: 'demo-user',
+          name: 'Dr. Demo', 
+          role: 'Clinical Specialist',
+          email: 'demo@medical.com'
         });
       }
     };
 
     loadData();
-  }, [taskId, studyInstanceUIDs, segmentationId, segmentIndex]);
+  }, [taskId]);
 
+  // Enhanced Comments Loading
   const loadComments = async () => {
     try {
       const actualTaskId = taskId || 'demo-task-id';
-      const actualStudyUID = studyInstanceUIDs || 'demo-study-uid';
+      const actualSeriesUID = seriesInstanceUID || 'demo-series-uid';
       
-      // Note: We now get project_id via the task chain in getUserRole function
-      // No need to pre-fetch project_id here anymore
 
-      // Fetch comments with user data
+
       const { data: commentsData, error } = await supabaseClient
         .from('_annotation_comments')
         .select(`
@@ -234,6 +235,7 @@ const SegmentComments: React.FC = () => {
           comment,
           created_at,
           data,
+          series_instance_uid,
           _users!_annotation_comments_author_id_fkey (
             id,
             full_name,
@@ -242,7 +244,7 @@ const SegmentComments: React.FC = () => {
           )
         `)
         .eq('task_assignment_id', actualTaskId)
-        .eq('series_instance_uid', actualStudyUID)
+        .eq('series_instance_uid', actualSeriesUID)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -264,10 +266,9 @@ const SegmentComments: React.FC = () => {
         return;
       }
 
-      // Process comments with real roles
       const formattedComments = await Promise.all(commentsData.map(async (comment: any) => {
         let authorName = 'Medical User';
-        let authorRole = 'Medical Professional';
+        let authorRole = 'Clinical Specialist';
         
         if (comment._users) {
           authorName = comment._users.full_name || 'Medical User';
@@ -275,7 +276,6 @@ const SegmentComments: React.FC = () => {
           if (comment._users.is_system) {
             authorRole = 'System User';
           } else {
-            // Get real role using task assignment chain
             authorRole = await getUserRole(comment.author_id, actualTaskId);
           }
         }
@@ -294,7 +294,6 @@ const SegmentComments: React.FC = () => {
       }));
       
       setComments(formattedComments);
-      console.log('✅ Loaded comments with roles successfully:', formattedComments.length);
       
     } catch (error) {
       console.error('❌ Complete failure loading comments:', error);
@@ -303,7 +302,7 @@ const SegmentComments: React.FC = () => {
         author_id: 'system',
         author_name: 'System',
         author_role: 'System',
-        comment: 'Welcome to the Medical Review System!',
+        comment: 'Welcome to the AI-Powered Medical Review Platform!',
         created_at: new Date().toISOString(),
         data: { priority: 'low', status: 'published' },
         status: 'published',
@@ -313,6 +312,11 @@ const SegmentComments: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    loadComments();
+  }, [taskId, seriesInstanceUID]);
+
+  // Enhanced Comment Submission with Enter Key
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -320,12 +324,11 @@ const SegmentComments: React.FC = () => {
 
     try {
       const actualTaskId = taskId || 'demo-task-id';
-      const actualStudyUID = studyInstanceUIDs || 'demo-study-uid';
+      const actualSeriesUID = seriesInstanceUID || 'demo-series-uid';
 
-      // Get current user
       let currentUserId = null;
       let currentUserName = 'Medical User';
-      let currentUserRole = 'Medical Professional';
+      let currentUserRole = 'Clinical Specialist';
       let isAuthenticated = false;
       
       try {
@@ -335,7 +338,6 @@ const SegmentComments: React.FC = () => {
           currentUserId = userData.user.id;
           isAuthenticated = true;
           
-          // Get user name
           try {
             const { data: userProfile } = await supabaseClient
               .from('_users')
@@ -347,7 +349,6 @@ const SegmentComments: React.FC = () => {
             currentUserName = userData.user.email || 'Medical User';
           }
           
-          // Get user role using task assignment chain
           currentUserRole = await getUserRole(currentUserId, actualTaskId);
         }
       } catch (authError) {
@@ -362,8 +363,8 @@ const SegmentComments: React.FC = () => {
           author_role: currentUserRole,
           comment: newComment.trim(),
           created_at: new Date().toISOString(),
-          data: { priority: commentPriority, status: 'published' },
-          status: 'published',
+          data: { priority: commentPriority, status: 'published' as const },
+          status: 'published' as const,
           priority: commentPriority
         };
         
@@ -379,8 +380,8 @@ const SegmentComments: React.FC = () => {
         task_assignment_id: actualTaskId,
         author_id: currentUserId,
         comment: newComment.trim(),
-        series_instance_uid: actualStudyUID,
-        data: { priority: commentPriority, status: 'published' }
+        series_instance_uid: actualSeriesUID,
+        data: { priority: commentPriority, status: 'published' as const }
       };
 
       const { data: savedComment, error } = await supabaseClient
@@ -399,7 +400,7 @@ const SegmentComments: React.FC = () => {
           comment: newComment.trim(),
           created_at: new Date().toISOString(),
           data: commentData.data,
-          status: 'published',
+          status: 'published' as const,
           priority: commentPriority
         };
         
@@ -414,7 +415,7 @@ const SegmentComments: React.FC = () => {
           comment: savedComment.comment,
           created_at: savedComment.created_at,
           data: savedComment.data || {},
-          status: 'published',
+          status: 'published' as const,
           priority: commentPriority
         };
         setComments([...comments, newCommentObj]);
@@ -431,30 +432,51 @@ const SegmentComments: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleResolveComment = async (commentId: string) => {
+  // Enhanced Toggle Resolve/Unresolve System
+  const handleToggleResolveComment = async (commentId: string) => {
     try {
+      const comment = comments.find(c => c.id === commentId);
+      if (!comment) return;
+      
+      const isCurrentlyResolved = comment.data?.status === 'resolved';
+      const newStatus = isCurrentlyResolved ? 'published' : 'resolved';
+      
+      const updateData = isCurrentlyResolved 
+        ? { 
+            ...comment.data,
+            status: newStatus as 'published',
+            resolved_by: null,
+            resolved_at: null
+          }
+        : { 
+            ...comment.data,
+            status: newStatus as 'resolved',
+            resolved_by: user?.id,
+            resolved_at: new Date().toISOString()
+          };
+
       const { error } = await supabaseClient
         .from('_annotation_comments')
-        .update({
-          data: {
-            ...comments.find(c => c.id === commentId)?.data,
-            status: 'resolved',
-            resolved_at: new Date().toISOString(),
-            resolved_by: user?.id
-          }
-        })
+        .update({ data: updateData })
         .eq('id', commentId);
 
       if (!error) {
-        setComments(comments.map(c => 
-          c.id === commentId ? { ...c, status: 'resolved' as const } : c
+        setComments(prev => prev.map(c => 
+          c.id === commentId 
+            ? { 
+                ...c, 
+                status: newStatus as 'published' | 'resolved', 
+                data: { ...c.data, ...updateData }
+              } 
+            : c
         ));
       }
     } catch (error) {
-      console.error('❌ Failed to resolve comment:', error);
+      console.error('❌ Error toggling resolve status:', error);
     }
   };
 
+  // Date Formatting
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -475,6 +497,7 @@ const SegmentComments: React.FC = () => {
     });
   };
 
+  // Priority and Status Styling
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-200';
@@ -504,6 +527,7 @@ const SegmentComments: React.FC = () => {
     }
   };
 
+  // Navigation
   const handleBackToViewer = () => {
     const actualTaskId = taskId || 'demo-task-id';
     const actualStudyUID = studyInstanceUIDs || 'demo-study-uid';
@@ -511,13 +535,15 @@ const SegmentComments: React.FC = () => {
     window.location.href = viewerUrl;
   };
 
+  // Filtered Comments
   const filteredComments = comments.filter(comment => {
     if (filterStatus === 'all') return true;
-    if (filterStatus === 'resolved') return comment.status === 'resolved';
-    if (filterStatus === 'open') return comment.status !== 'resolved';
+    if (filterStatus === 'resolved') return comment.data?.status === 'resolved';
+    if (filterStatus === 'open') return comment.data?.status !== 'resolved';
     return true;
   });
 
+  // Avatar and Role Styling
   const getAvatarColor = (name: string) => {
     const colors = [
       'from-blue-500 to-blue-600',
@@ -555,230 +581,1281 @@ const SegmentComments: React.FC = () => {
     }
   };
 
+  // Enhanced Threading and Reply System
+  const handleReply = (commentId: string) => {
+    setReplyMode(prev => ({ ...prev, [commentId]: !prev[commentId] }));
+    setReplyTexts(prev => ({ ...prev, [commentId]: prev[commentId] || '' }));
+  };
+
+  const handleReplySubmit = async (e: React.FormEvent, parentCommentId: string) => {
+    e.preventDefault();
+    const replyText = replyTexts[parentCommentId];
+    if (!replyText?.trim() || !user?.id || isSubmittingReply[parentCommentId]) return;
+
+    setIsSubmittingReply(prev => ({ ...prev, [parentCommentId]: true }));
+
+    try {
+      const actualTaskId = taskId || 'demo-task-id';
+      const actualSeriesUID = seriesInstanceUID || 'demo-series-uid';
+
+      const replyData = {
+        task_assignment_id: actualTaskId,
+        author_id: user.id,
+        comment: replyText.trim(),
+        series_instance_uid: actualSeriesUID,
+        data: { 
+          priority: 'medium' as const, 
+          status: 'published' as const,
+          parent_comment_id: parentCommentId
+        }
+      };
+
+      const { data: savedReply, error } = await supabaseClient
+        .from('_annotation_comments')
+        .insert(replyData)
+        .select('*')
+        .single();
+
+      if (!error && savedReply) {
+        const newReply: Comment = {
+          id: savedReply.id,
+          author_id: savedReply.author_id,
+          author_name: user.name,
+          author_role: user.role,
+          comment: savedReply.comment,
+          created_at: savedReply.created_at,
+          data: savedReply.data || {},
+          status: 'published' as const,
+          priority: 'medium'
+        };
+        
+        setComments(prev => [...prev, newReply]);
+        setReplyTexts(prev => ({ ...prev, [parentCommentId]: '' }));
+        setReplyMode(prev => ({ ...prev, [parentCommentId]: false }));
+      }
+    } catch (error) {
+      console.error('❌ Failed to save reply:', error);
+    } finally {
+      setIsSubmittingReply(prev => ({ ...prev, [parentCommentId]: false }));
+    }
+  };
+
+  // Enhanced Reactions System (GitLab-style)
+  const handleReaction = async (commentId: string, reaction: string) => {
+    if (!user?.id) return;
+
+    try {
+      const comment = comments.find(c => c.id === commentId);
+      if (!comment) return;
+
+      const currentReactions = comment.data?.reactions || {};
+      const reactionUsers = currentReactions[reaction] || [];
+      
+      let updatedReactionUsers: string[];
+      if (reactionUsers.includes(user.id)) {
+        // Remove reaction
+        updatedReactionUsers = reactionUsers.filter(id => id !== user.id);
+      } else {
+        // Add reaction
+        updatedReactionUsers = [...reactionUsers, user.id];
+      }
+
+      const updatedReactions = {
+        ...currentReactions,
+        [reaction]: updatedReactionUsers
+      };
+
+      // Clean up empty reaction arrays
+      Object.keys(updatedReactions).forEach(key => {
+        if (updatedReactions[key].length === 0) {
+          delete updatedReactions[key];
+        }
+      });
+
+      const { error } = await supabaseClient
+        .from('_annotation_comments')
+        .update({
+          data: {
+            ...comment.data,
+            reactions: updatedReactions
+          }
+        })
+        .eq('id', commentId);
+
+      if (!error) {
+        setComments(prev => prev.map(c => 
+          c.id === commentId 
+            ? { ...c, data: { ...c.data, reactions: updatedReactions } } 
+            : c
+        ));
+      }
+    } catch (error) {
+      console.error('❌ Failed to update reaction:', error);
+    }
+  };
+
+  // Threading Helper Functions
+  const getThreadedComments = () => {
+    const parentComments = comments.filter(c => !c.data?.parent_comment_id);
+    const childComments = comments.filter(c => c.data?.parent_comment_id);
+    
+    return parentComments.map(parent => ({
+      ...parent,
+      replies: childComments.filter(child => child.data?.parent_comment_id === parent.id)
+    }));
+  };
+
+  // Enhanced Statistics for Header
+  const getThreadsStats = () => {
+    const threads = getThreadedComments();
+    const totalThreads = threads.length;
+    const resolvedThreads = threads.filter(thread => thread.data?.status === 'resolved').length;
+    const openThreads = totalThreads - resolvedThreads;
+    return { totalThreads, resolvedThreads, openThreads };
+  };
+
+  const getPriorityStats = () => {
+    const criticalCount = comments.filter(c => c.priority === 'critical').length;
+    const highCount = comments.filter(c => c.priority === 'high').length;
+    const mediumCount = comments.filter(c => c.priority === 'medium').length;
+    const lowCount = comments.filter(c => c.priority === 'low').length;
+    return { criticalCount, highCount, mediumCount, lowCount };
+  };
+
+  const toggleReplies = (commentId: string) => {
+    setShowReplies(prev => ({ ...prev, [commentId]: !prev[commentId] }));
+  };
+
+  // Enhanced Delete System with Professional Dialog
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabaseClient
+        .from('_annotation_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (!error) {
+        setComments(prev => {
+          const updatedComments = prev.filter(c => c.id !== commentId);
+          
+          if (updatedComments.length === prev.length) {
+            return prev.map(comment => ({
+              ...comment,
+              replies: comment.replies?.filter(reply => reply.id !== commentId) || []
+            }));
+          }
+          
+          return updatedComments;
+        });
+        
+        setDeleteConfirm({show: false, commentId: null});
+      } else {
+        console.error('❌ Failed to delete comment:', error);
+        alert('Failed to delete comment. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting comment:', error);
+      alert('Error deleting comment. Please try again.');
+    }
+  };
+
+  const confirmDeleteComment = (commentId: string) => {
+    setDeleteConfirm({show: true, commentId});
+  };
+
+  const canDeleteComment = (comment: Comment) => {
+    return comment.author_id === user?.id || user?.role?.toLowerCase() === 'admin';
+  };
+
+  // UI State Management
+  const toggleDropdown = (commentId: string) => {
+    setShowDropdown(prev => ({ ...prev, [commentId]: !prev[commentId] }));
+    setShowEmojiPicker(prev => ({ ...prev, [commentId]: false }));
+  };
+
+  const toggleEmojiPicker = (commentId: string) => {
+    setShowEmojiPicker(prev => ({ ...prev, [commentId]: !prev[commentId] }));
+    setShowDropdown(prev => ({ ...prev, [commentId]: false }));
+  };
+
+  // Enhanced Click Outside Handler
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowDropdown({});
+      setShowEmojiPicker({});
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Enhanced Enter Key Handler
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (newComment.trim() && !isLoading) {
+        handleSubmit(e as any);
+      }
+    }
+  };
+
+  // Auto-focus Enhancement
+  useEffect(() => {
+    if (commentInputRef.current && activeView === 'comments') {
+      commentInputRef.current.focus();
+    }
+  }, [activeView]);
+
+  // Enhanced CSS Class Application
+  useEffect(() => {
+    document.body.classList.add('medical-interface', 'comment-page-body');
+    
+    return () => {
+      document.body.classList.remove('medical-interface', 'comment-page-body');
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
-      <div className="bg-white/95 backdrop-blur-sm shadow-lg border-b border-gray-200/50 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+    <div className="comment-page-wrapper min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      {/* Enhanced Professional Header */}
+      <div className="header-section">
+        <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
+            {/* Left Section */}
             <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-white/20">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              
+              <div>
+                <h1 className="text-lg font-bold text-white">AI-Powered Medical Review</h1>
+                <p className="text-blue-200 text-xs">Advanced Diagnostic Assessment Platform</p>
+              </div>
+              
               <button 
                 onClick={handleBackToViewer}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl font-semibold"
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/20 font-medium text-sm ml-6"
               >
-                ← Back to Viewer
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Viewer
               </button>
-              <div className="h-8 w-px bg-gray-300"></div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Medical Review & Discussion
-                </h1>
-                <p className="text-sm text-gray-600">Collaborative annotation review platform</p>
+            </div>
+            
+            {/* Right Section - User Info */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-2 py-1 bg-white/10 rounded-lg border border-white/20 backdrop-blur-sm">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-xs text-white font-medium">Connected</span>
+              </div>
+              
+              <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-1.5 backdrop-blur-sm border border-white/20">
+                <div className="text-right">
+                  <div className="text-white font-semibold text-sm">{user?.name || 'Medical Professional'}</div>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs text-slate-300">{getRoleIcon(user?.role)}</span>
+                    <span className="text-xs text-emerald-300 font-medium">{user?.role || 'Professional'}</span>
+                  </div>
+                </div>
+                <div className={`w-8 h-8 bg-gradient-to-br ${getAvatarColor(user?.name || '')} rounded-xl flex items-center justify-center shadow-md ring-2 ring-white/30`}>
+                  <span className="text-white font-bold text-xs">{user?.name?.charAt(0) || 'U'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Page Content */}
+      <div className="comment-page-content">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Enhanced SEG Information Card */}
+          <div className="bg-gradient-to-br from-white via-slate-50 to-blue-50 rounded-3xl shadow-2xl border border-slate-200/50 p-8 mb-8 backdrop-blur-sm">
+            <div className="flex items-center gap-6 mb-8">
+              <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-xl ring-4 ring-white/50">
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-xl font-bold text-black">
+                    {getSegmentName()} - Clinical Assessment
+                  </h2>
+                  <span className="series-badge">
+                    🎯 DICOM Series
+                  </span>
+                </div>
+                <p className="text-black font-medium text-sm">Professional medical annotation review & diagnostic discussion platform</p>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-xl border border-slate-200 shadow-sm">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-black">Live Session</span>
               </div>
             </div>
             
-            {/* User Info */}
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">{user?.name}</div>
-                <div className="flex items-center justify-end gap-1">
-                  <span className="text-xs">{getRoleIcon(user?.role)}</span>
-                  <span className="text-xs text-gray-600 font-medium">{user?.role}</span>
-                </div>
-              </div>
-              <div className={`w-10 h-10 bg-gradient-to-br ${getAvatarColor(user?.name || '')} rounded-full flex items-center justify-center shadow-lg`}>
-                <span className="text-white font-bold text-sm">{user?.name?.charAt(0)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Segment Information Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-6 mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                <path fillRule="evenodd" d="M4 5a2 2 0 012-2v1a1 1 0 102 0V3h3v1a1 1 0 102 0V3a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm2.5 7a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" clipRule="evenodd"/>
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900">Segment Analysis & Review</h2>
-              <p className="text-gray-600">Detailed discussion and quality assessment for medical annotations</p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-              <div className="text-xs font-medium text-blue-600 uppercase tracking-wide mb-1">Segmentation ID</div>
-              <div className="text-sm font-mono text-blue-900 font-semibold">{segmentationId?.substring(0, 8) || 'N/A'}...</div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-              <div className="text-xs font-medium text-purple-600 uppercase tracking-wide mb-1">Segment Index</div>
-              <div className="text-sm font-semibold text-purple-900">#{segmentIndex || 'N/A'}</div>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
-              <div className="text-xs font-medium text-green-600 uppercase tracking-wide mb-1">Task ID</div>
-              <div className="text-sm font-mono text-green-900 font-semibold">{taskId?.substring(0, 8) || 'N/A'}...</div>
-            </div>
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
-              <div className="text-xs font-medium text-orange-600 uppercase tracking-wide mb-1">Study UID</div>
-              <div className="text-sm font-mono text-orange-900 font-semibold">{studyInstanceUIDs?.substring(0, 8) || 'N/A'}...</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Comments Section */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 mb-8">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Comments & Reviews</h3>
-              <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                {filteredComments.length} {filteredComments.length === 1 ? 'comment' : 'comments'}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-6">
-            {/* Comments List */}
-            <div className="space-y-6 mb-8">
-              {filteredComments.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd"/>
+            {/* Enhanced Grid with Hierarchy Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Study Level */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-5 border border-blue-200/60 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4z"/>
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No comments yet</h3>
-                  <p className="text-gray-500">Be the first to start the medical review discussion.</p>
+                  <div>
+                    <div className="text-xs font-bold text-blue-700 uppercase tracking-wider">Study Level</div>
+                    <div className="text-xs text-blue-600">Parent Container</div>
+                  </div>
                 </div>
-              ) : (
-                filteredComments.map((comment) => (
-                  <div key={comment.id} className="group">
-                    <div className="flex gap-5 p-6 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all duration-300">
-                      <div className={`w-14 h-14 bg-gradient-to-br ${getAvatarColor(comment.author_name)} rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg ring-2 ring-white`}>
-                        <span className="text-white font-bold text-base">
-                          {comment.author_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                        </span>
+                <div className="id-display text-blue-900 p-3 rounded-lg border border-blue-200/50">
+                  {studyInstanceUIDs || 'N/A'}
+                </div>
+              </div>
+
+              {/* Series Level - Current SEG */}
+              <div className="current-seg-enhanced rounded-2xl p-5 border-2 shadow-lg ring-2 ring-emerald-200/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="current-seg-text text-xs uppercase tracking-wider">CURRENT SEG</div>
+                    <div className="current-seg-text text-xs">{getSegmentName()}</div>
+                  </div>
+                </div>
+                <div className="id-display current-seg-text bg-white/20 p-3 rounded-lg border border-white/30">
+                  {seriesInstanceUID || 'N/A'}
+                </div>
+              </div>
+
+              {/* Task Level */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-2xl p-5 border border-purple-200/60 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-purple-700 uppercase tracking-wider">Task Level</div>
+                    <div className="text-xs text-purple-600">Assignment Context</div>
+                  </div>
+                </div>
+                <div className="id-display text-purple-900 p-3 rounded-lg border border-purple-200/50">
+                  {taskId || 'N/A'}
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Stats Header */}
+            <div className="stats-container mt-6 p-4 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6 flex-wrap">
+                  <span className="text-gray-600 text-sm">
+                    <span className="stats-number">{comments.length}</span> total {comments.length === 1 ? 'comment' : 'comments'}
+                  </span>
+                  <span className="text-blue-600 text-sm">
+                    <span className="stats-number">{getThreadsStats().totalThreads}</span> {getThreadsStats().totalThreads === 1 ? 'thread' : 'threads'}
+                  </span>
+                  <span className="text-green-600 text-sm">
+                    <span className="stats-number">{getThreadsStats().resolvedThreads}</span> resolved
+                  </span>
+                  <span className="text-orange-600 text-sm">
+                    <span className="stats-number">{getThreadsStats().openThreads}</span> open
+                  </span>
+                  {getPriorityStats().criticalCount > 0 && (
+                    <span className="priority-badge-critical">
+                      🚨 {getPriorityStats().criticalCount} critical issues
+                    </span>
+                  )}
+                  {getPriorityStats().highCount > 0 && (
+                    <span className="priority-badge-high">
+                      ⚠️ {getPriorityStats().highCount} high priority
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 font-medium">
+                  🔄 Real-time updates • 🔒 Secure • 💾 Auto-saved
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Enhanced Comments Section */}
+          <div className="bg-gradient-to-br from-white via-slate-50 to-blue-50 rounded-3xl shadow-2xl border border-slate-200/50 mb-8 backdrop-blur-sm">
+            {/* Header with Tabs */}
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-bold text-black">
+                    {getSegmentName()} - Diagnostic Review
+                  </h3>
+                  <span className="comment-count-badge">
+                    📊 {filteredComments.length} {filteredComments.length === 1 ? 'review' : 'reviews'}
+                  </span>
+                </div>
+                
+                {/* Real-time indicator */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white/80 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-black">Live</span>
+                  </div>
+                  
+                  {/* Filter dropdown */}
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent shadow-sm"
+                  >
+                    <option value="all">All Assessments</option>
+                    <option value="open">Pending Review</option>
+                    <option value="resolved">Completed</option>
+                  </select>
+                  
+
+                </div>
+              </div>
+
+              {/* Enhanced Navigation Tabs */}
+              <div className="enhanced-tabs">
+                              {[
+                { id: 'comments', label: '💬 Medical Reviews', icon: '💬' },
+                { id: 'review', label: '📊 Clinical Analytics', icon: '📊' },
+                { id: 'history', label: '🏥 Activity Timeline', icon: '🏥' }
+              ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveView(tab.id as any)}
+                    className={`enhanced-tab flex-1 ${
+                      activeView === tab.id ? 'active' : ''
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* GitLab-Style Medical Comment System */}
+              {activeView === 'comments' && (
+                <div className="medical-comment-system bg-white rounded-lg border border-gray-200 shadow-sm">
+                  
+                  {/* New Comment Form with Enter Key Support */}
+                  <div className="border-b border-gray-200 p-6">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-10 h-10 bg-gradient-to-br ${getAvatarColor(user?.name || '')} rounded-full flex items-center justify-center shadow-md flex-shrink-0`}>
+                        <span className="text-white font-bold text-sm">{user?.name?.charAt(0) || 'U'}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-3">
-                              <h4 className="text-base font-bold text-gray-900">{comment.author_name}</h4>
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getRoleColor(comment.author_role)}`}>
-                                {getRoleIcon(comment.author_role)} {comment.author_role}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {comment.priority && (
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold border shadow-sm ${getPriorityColor(comment.priority)}`}>
-                                  {getPriorityIcon(comment.priority)} {comment.priority.charAt(0).toUpperCase() + comment.priority.slice(1)}
-                                </span>
-                              )}
-                              {comment.status && (
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(comment.status)}`}>
-                                  ✓ {comment.status === 'resolved' ? 'Resolved' : 'Active'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm text-gray-500 font-medium">{formatDate(comment.created_at)}</span>
-                            {comment.status !== 'resolved' && comment.author_id !== user?.id && (
-                              <button
-                                onClick={() => handleResolveComment(comment.id)}
-                                className="opacity-0 group-hover:opacity-100 px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold rounded-lg transition-all duration-200"
-                              >
-                                ✅ Resolve
-                              </button>
-                            )}
+                      <div className="flex-1">
+                        <div className="mb-3">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-sm font-semibold text-gray-900">{user?.name || 'Clinical Specialist'}</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(user?.role)}`}>
+                              {getRoleIcon(user?.role)} {user?.role || 'Professional'}
+                            </span>
                           </div>
                         </div>
-                        {comment.comment && (
-                          <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-5 rounded-xl border border-gray-200 shadow-inner">
-                            <p className="text-gray-800 leading-relaxed text-sm">{comment.comment}</p>
+                        
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                          <div>
+                            <textarea
+                              ref={commentInputRef}
+                              value={newComment}
+                              onChange={(e) => setNewComment(e.target.value)}
+                              onKeyDown={handleKeyDown}
+                              placeholder={`Add your clinical assessment for ${getSegmentName()}... (Press Enter to send, Shift+Enter for new line)`}
+                              className="main-comment-textarea w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm resize-vertical min-h-[100px]"
+                              rows={4}
+                              disabled={isLoading}
+                            />
                           </div>
-                        )}
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-gray-700">Priority:</label>
+                                <select
+                                  value={commentPriority}
+                                  onChange={(e) => setCommentPriority(e.target.value as any)}
+                                  className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                >
+                                  <option value="low">💭 Low Priority</option>
+                                  <option value="medium">📋 Medium Priority</option>
+                                  <option value="high">⚠️ High Priority</option>
+                                  <option value="critical">🚨 Critical Issue</option>
+                                </select>
+                              </div>
+                              
+                              <div className="comment-hints flex items-center gap-4 text-xs text-gray-500">
+                                <div className="flex items-center gap-2">
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                                  </svg>
+                                  <span>💡 Use markdown for formatting</span>
+                                </div>
+                                <div className="keyboard-hint">
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
+                                  </svg>
+                                  <span>⌨️ Enter to send, Shift+Enter for new line</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <button
+                              type="submit"
+                              disabled={!newComment.trim() || isLoading}
+                              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-all duration-200 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {isLoading ? (
+                                <>
+                                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                  </svg>
+                                  Submitting...
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.293l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd"/>
+                                  </svg>
+                                  Comment
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </form>
                       </div>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
 
-            {/* New Comment Form */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 bg-gradient-to-br ${getAvatarColor(user?.name || '')} rounded-full flex items-center justify-center shadow-lg`}>
-                  <span className="text-white font-bold text-sm">{user?.name?.charAt(0) || 'U'}</span>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Add Your Review</h3>
-                  <p className="text-xs text-gray-600">
-                    {getRoleIcon(user?.role)} Share your medical insights and observations
-                  </p>
-                </div>
-              </div>
-              
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <textarea
-                      ref={commentTextareaRef}
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Share your medical insights, clinical observations, or feedback about this annotation..."
-                      className="w-full p-4 border border-gray-300 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/80 backdrop-blur-sm"
-                      rows={4}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-gray-700">Priority</label>
-                    <select
-                      value={commentPriority}
-                      onChange={(e) => setCommentPriority(e.target.value as any)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      disabled={isLoading}
-                    >
-                      <option value="low">💭 Low</option>
-                      <option value="medium">📋 Medium</option>
-                      <option value="high">⚠️ High</option>
-                      <option value="critical">🚨 Critical</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-gray-500">
-                    💡 Tip: Be specific and constructive in your feedback to help improve annotation quality
-                  </p>
-                  <button
-                    type="submit"
-                    disabled={!newComment.trim() || isLoading}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-xl transition-all duration-300 hover:scale-105 shadow-lg disabled:hover:scale-100 font-semibold"
-                  >
-                    {isLoading ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                      </svg>
+                  {/* Enhanced Threaded Comments Display */}
+                  <div className="divide-y divide-gray-200">
+                    {getThreadedComments().length === 0 ? (
+                      <div className="p-12 text-center">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No comments yet</h3>
+                        <p className="text-gray-500 max-w-md mx-auto">
+                          Start the clinical discussion by adding your professional assessment of the {getSegmentName()} annotation above.
+                        </p>
+                      </div>
                     ) : (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
-                      </svg>
+                      getThreadedComments()
+                        .filter(comment => {
+                          if (filterStatus === 'all') return true;
+                          if (filterStatus === 'resolved') return comment.data?.status === 'resolved';
+                          if (filterStatus === 'open') return comment.data?.status !== 'resolved';
+                          return true;
+                        })
+                        .map((comment) => {
+                          const isResolved = comment.data?.status === 'resolved';
+                          return (
+                            <div 
+                              key={comment.id} 
+                              className={`p-6 ${isResolved ? 'comment-resolved bg-green-50 border-l-4 border-green-400' : ''}`}
+                            >
+
+                              
+                              {/* Main Comment */}
+                              <div className="flex items-start gap-4">
+                                {/* User Avatar */}
+                                <div className={`w-10 h-10 bg-gradient-to-br ${getAvatarColor(comment.author_name)} rounded-full flex items-center justify-center flex-shrink-0 shadow-md`}>
+                                  <span className="text-white font-bold text-sm">
+                                    {comment.author_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                                  </span>
+                                </div>
+                                
+                                {/* Comment Content */}
+                                <div className="flex-1 min-w-0">
+                                  {/* Header */}
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-3">
+                                      <span className="font-semibold text-gray-900">{comment.author_name}</span>
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(comment.author_role)}`}>
+                                        {getRoleIcon(comment.author_role)} {comment.author_role}
+                                      </span>
+                                      {comment.priority && comment.priority !== 'medium' && (
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(comment.priority)}`}>
+                                          {getPriorityIcon(comment.priority)} {comment.priority.toUpperCase()}
+                                        </span>
+                                      )}
+                                      <span className="text-sm text-gray-500">
+                                        {formatDate(comment.created_at)}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Dropdown Menu */}
+                                    {canDeleteComment(comment) && (
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleDropdown(comment.id);
+                                          }}
+                                          className="dropdown-button"
+                                        >
+                                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                          </svg>
+                                        </button>
+                                        
+                                        {showDropdown[comment.id] && (
+                                          <div className="absolute right-0 top-8 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                                            <button
+                                              onClick={() => {
+                                                confirmDeleteComment(comment.id);
+                                                setShowDropdown(prev => ({ ...prev, [comment.id]: false }));
+                                              }}
+                                              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                              </svg>
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Comment Body */}
+                                  <div className="prose prose-sm max-w-none mb-4">
+                                    <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                                      {comment.comment}
+                                    </p>
+                                  </div>
+
+                                  {/* Enhanced GitLab-style Reactions */}
+                                  {comment.data?.reactions && Object.keys(comment.data.reactions).length > 0 && (
+                                    <div className="flex items-center flex-wrap gap-2 mb-3">
+                                      {Object.entries(comment.data.reactions).map(([reaction, users]) => (
+                                        users.length > 0 && (
+                                          <button
+                                            key={reaction}
+                                            onClick={() => handleReaction(comment.id, reaction)}
+                                            className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all duration-200 hover:scale-105 ${
+                                              users.includes(user?.id || '') 
+                                                ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm' 
+                                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200'
+                                            }`}
+                                            title={`${users.length} ${users.length === 1 ? 'person' : 'people'} reacted with ${reaction}`}
+                                          >
+                                            <span className="text-lg">
+                                              {reaction === 'like' ? '👍' : 
+                                               reaction === 'heart' ? '❤️' : 
+                                               reaction === 'laugh' ? '😄' : 
+                                               reaction === 'sad' ? '😢' :
+                                               reaction === 'angry' ? '😠' :
+                                               reaction === 'wow' ? '😮' :
+                                               reaction === 'clap' ? '👏' :
+                                               reaction === 'fire' ? '🔥' :
+                                               reaction === 'rocket' ? '🚀' :
+                                               reaction === 'eyes' ? '👀' :
+                                               reaction === 'thinking' ? '🤔' :
+                                               reaction === 'party' ? '🎉' :
+                                               reaction === 'check' ? '✅' :
+                                               reaction === 'cross' ? '❌' :
+                                               reaction === 'question' ? '❓' :
+                                               reaction === 'exclamation' ? '❗' : '👀'}
+                                            </span>
+                                            <span className="font-semibold">{users.length}</span>
+                                          </button>
+                                        )
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Enhanced Actions with Resolve Toggle */}
+                                  <div className="flex items-center gap-2 mb-4">
+                                    {/* Always show action buttons, style resolve differently */}
+                                    <button
+                                      onClick={() => handleToggleResolveComment(comment.id)}
+                                      className={`comment-action-button ${
+                                        comment.data?.status === 'resolved' 
+                                          ? 'resolve-button-active' 
+                                          : 'resolve-button-inactive'
+                                      }`}
+                                    >
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        {comment.data?.status === 'resolved' ? (
+                                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                                        ) : (
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                                        )}
+                                      </svg>
+                                      {comment.data?.status === 'resolved' ? 'Unresolve' : 'Resolve'}
+                                    </button>
+                                    
+                                    <button 
+                                      onClick={() => handleReply(comment.id)}
+                                      className="comment-action-button reply-button"
+                                    >
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd"/>
+                                      </svg>
+                                      Reply
+                                    </button>
+                                    
+                                    {/* Enhanced Emoji Picker - Discord/GitLab Style */}
+                                    <div className="relative">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleEmojiPicker(comment.id);
+                                        }}
+                                        className="comment-action-button react-button"
+                                      >
+                                        <span className="text-base">😊</span>
+                                        <span>React</span>
+                                      </button>
+                                      
+                                      {/* Emoji Picker Popup */}
+                                      {showEmojiPicker[comment.id] && (
+                                        <div className="emoji-picker-popup">
+                                          {/* Frequently Used */}
+                                          <div className="mb-3">
+                                            <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Frequently used</h4>
+                                            <div className="flex items-center gap-1">
+                                              {[
+                                                { key: 'like', emoji: '👍' },
+                                                { key: 'heart', emoji: '❤️' },
+                                                { key: 'laugh', emoji: '😄' }
+                                              ].map(({ key, emoji }) => (
+                                                <button
+                                                  key={key}
+                                                  onClick={() => {
+                                                    handleReaction(comment.id, key);
+                                                    setShowEmojiPicker(prev => ({ ...prev, [comment.id]: false }));
+                                                  }}
+                                                  className="emoji-grid-button"
+                                                >
+                                                  {emoji}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+                                          
+                                          {/* All Reactions */}
+                                          <div>
+                                            <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">People</h4>
+                                            <div className="grid grid-cols-8 gap-1">
+                                              {[
+                                                { key: 'like', emoji: '👍' },
+                                                { key: 'heart', emoji: '❤️' },
+                                                { key: 'laugh', emoji: '😄' },
+                                                { key: 'wow', emoji: '😮' },
+                                                { key: 'sad', emoji: '😢' },
+                                                { key: 'angry', emoji: '😠' },
+                                                { key: 'clap', emoji: '👏' },
+                                                { key: 'fire', emoji: '🔥' },
+                                                { key: 'rocket', emoji: '🚀' },
+                                                { key: 'eyes', emoji: '👀' },
+                                                { key: 'thinking', emoji: '🤔' },
+                                                { key: 'party', emoji: '🎉' },
+                                                { key: 'check', emoji: '✅' },
+                                                { key: 'cross', emoji: '❌' },
+                                                { key: 'question', emoji: '❓' },
+                                                { key: 'exclamation', emoji: '❗' }
+                                              ].map(({ key, emoji }) => (
+                                                <button
+                                                  key={key}
+                                                  onClick={() => {
+                                                    handleReaction(comment.id, key);
+                                                    setShowEmojiPicker(prev => ({ ...prev, [comment.id]: false }));
+                                                  }}
+                                                  className="emoji-grid-button"
+                                                  style={{width: '32px', height: '32px'}}
+                                                  title={key}
+                                                >
+                                                  {emoji}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {comment.priority === 'critical' && (
+                                      <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full ml-auto">
+                                        🚨 Requires Immediate Attention
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Reply Form */}
+                                  {replyMode[comment.id] && (
+                                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                      <form onSubmit={(e) => handleReplySubmit(e, comment.id)} className="space-y-3">
+                                        <div className="flex items-start gap-3">
+                                          <div className={`w-8 h-8 bg-gradient-to-br ${getAvatarColor(user?.name || '')} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                            <span className="text-white font-bold text-xs">{user?.name?.charAt(0) || 'U'}</span>
+                                          </div>
+                                          <textarea
+                                            value={replyTexts[comment.id] || ''}
+                                            onChange={(e) => setReplyTexts(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                if (replyTexts[comment.id]?.trim()) {
+                                                  handleReplySubmit(e as any, comment.id);
+                                                }
+                                              }
+                                            }}
+                                            placeholder="Write a reply... (Press Enter to send, Shift+Enter for new line)"
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            rows={3}
+                                          />
+                                        </div>
+                                        <div className="flex items-center justify-end gap-2 pl-11">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleReply(comment.id)}
+                                            className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="submit"
+                                            disabled={!replyTexts[comment.id]?.trim() || isSubmittingReply[comment.id]}
+                                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm rounded-md font-medium"
+                                          >
+                                            {isSubmittingReply[comment.id] ? 'Sending...' : 'Reply'}
+                                          </button>
+                                        </div>
+                                      </form>
+                                    </div>
+                                  )}
+
+                                  {/* Replies Thread */}
+                                  {comment.replies && comment.replies.length > 0 && (
+                                    <div className="mt-4">
+                                      <button
+                                        onClick={() => toggleReplies(comment.id)}
+                                        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium mb-3"
+                                      >
+                                        <svg className={`w-4 h-4 transition-transform ${showReplies[comment.id] ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+                                        </svg>
+                                        {showReplies[comment.id] ? 'Hide' : 'Show'} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+                                      </button>
+                                      
+                                      {showReplies[comment.id] && (
+                                        <div className="pl-6 border-l-2 border-gray-200 space-y-4">
+                                          {comment.replies.map((reply) => (
+                                            <div key={reply.id} className="flex items-start gap-3">
+                                              <div className={`w-8 h-8 bg-gradient-to-br ${getAvatarColor(reply.author_name)} rounded-full flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                                <span className="text-white font-bold text-xs">
+                                                  {reply.author_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                                                </span>
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-1">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-gray-900 text-sm">{reply.author_name}</span>
+                                                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${getRoleColor(reply.author_role)}`}>
+                                                      {getRoleIcon(reply.author_role)}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">{formatDate(reply.created_at)}</span>
+                                                  </div>
+                                                  
+                                                  {/* Dropdown Menu for Replies */}
+                                                  {canDeleteComment(reply) && (
+                                                    <div className="relative">
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          toggleDropdown(reply.id);
+                                                        }}
+                                                        className="dropdown-button"
+                                                        style={{padding: '4px'}}
+                                                      >
+                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                                        </svg>
+                                                      </button>
+                                                    
+                                                      {showDropdown[reply.id] && (
+                                                        <div className="absolute right-0 top-8 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                                                          <button
+                                                            onClick={() => {
+                                                              confirmDeleteComment(reply.id);
+                                                              setShowDropdown(prev => ({ ...prev, [reply.id]: false }));
+                                                            }}
+                                                            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                                          >
+                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                            Delete
+                                                          </button>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{reply.comment}</p>
+                                                
+                                                {/* Enhanced Reply reactions */}
+                                                <div className="flex items-center gap-1 mt-2">
+                                                  {/* Show existing reactions */}
+                                                  {reply.data?.reactions && Object.entries(reply.data.reactions).map(([reaction, users]) => (
+                                                    users.length > 0 && (
+                                                      <button
+                                                        key={reaction}
+                                                        onClick={() => handleReaction(reply.id, reaction)}
+                                                        className={`group flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-all duration-200 hover:scale-105 ${
+                                                          users.includes(user?.id || '') 
+                                                            ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200'
+                                                        }`}
+                                                        title={`${users.length} ${users.length === 1 ? 'person' : 'people'} reacted with ${reaction}`}
+                                                      >
+                                                        <span>
+                                                          {reaction === 'like' ? '👍' : 
+                                                           reaction === 'heart' ? '❤️' : 
+                                                           reaction === 'laugh' ? '😄' : 
+                                                           reaction === 'sad' ? '😢' :
+                                                           reaction === 'angry' ? '😠' :
+                                                           reaction === 'wow' ? '😮' :
+                                                           reaction === 'clap' ? '👏' :
+                                                           reaction === 'fire' ? '🔥' :
+                                                           reaction === 'rocket' ? '🚀' :
+                                                           reaction === 'eyes' ? '👀' :
+                                                           reaction === 'thinking' ? '🤔' :
+                                                           reaction === 'party' ? '🎉' :
+                                                           reaction === 'check' ? '✅' :
+                                                           reaction === 'cross' ? '❌' :
+                                                           reaction === 'question' ? '❓' :
+                                                           reaction === 'exclamation' ? '❗' : '👀'}
+                                                        </span>
+                                                        <span className="font-semibold">{users.length}</span>
+                                                      </button>
+                                                    )
+                                                  ))}
+                                                  
+                                                  {/* Emoji Picker for Replies */}
+                                                  <div className="relative">
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleEmojiPicker(reply.id);
+                                                      }}
+                                                      className="flex items-center justify-center w-6 h-6 text-sm hover:bg-gray-100 rounded-full transition-all duration-200 hover:scale-110"
+                                                      title="Add reaction"
+                                                    >
+                                                      <span>😊</span>
+                                                    </button>
+                                                    
+                                                    {/* Reply Emoji Picker Popup */}
+                                                    {showEmojiPicker[reply.id] && (
+                                                      <div className="emoji-picker-popup" style={{minWidth: '240px', left: '-120px'}}>
+                                                        {/* Frequently Used */}
+                                                        <div className="mb-2">
+                                                          <h4 className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Quick</h4>
+                                                          <div className="flex items-center gap-1">
+                                                            {[
+                                                              { key: 'like', emoji: '👍' },
+                                                              { key: 'heart', emoji: '❤️' },
+                                                              { key: 'laugh', emoji: '😄' }
+                                                            ].map(({ key, emoji }) => (
+                                                              <button
+                                                                key={key}
+                                                                onClick={() => {
+                                                                  handleReaction(reply.id, key);
+                                                                  setShowEmojiPicker(prev => ({ ...prev, [reply.id]: false }));
+                                                                }}
+                                                                className="emoji-grid-button"
+                                                              >
+                                                                {emoji}
+                                                              </button>
+                                                            ))}
+                                                          </div>
+                                                        </div>
+                                                        
+                                                        {/* More Reactions */}
+                                                        <div>
+                                                          <h4 className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">More</h4>
+                                                          <div className="grid grid-cols-6 gap-1">
+                                                            {[
+                                                              { key: 'wow', emoji: '😮' },
+                                                              { key: 'sad', emoji: '😢' },
+                                                              { key: 'angry', emoji: '😠' },
+                                                              { key: 'clap', emoji: '👏' },
+                                                              { key: 'fire', emoji: '🔥' },
+                                                              { key: 'check', emoji: '✅' }
+                                                            ].map(({ key, emoji }) => (
+                                                              <button
+                                                                key={key}
+                                                                onClick={() => {
+                                                                  handleReaction(reply.id, key);
+                                                                  setShowEmojiPicker(prev => ({ ...prev, [reply.id]: false }));
+                                                                }}
+                                                                className="emoji-grid-button"
+                                                                style={{width: '32px', height: '32px'}}
+                                                                title={key}
+                                                              >
+                                                                {emoji}
+                                                              </button>
+                                                            ))}
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
                     )}
-                    {isLoading ? 'Posting...' : 'Post Review'}
-                  </button>
+                  </div>
+
+                  {/* Summary Footer */}
+                  <div className="bg-gray-50 px-6 py-4 rounded-b-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-6">
+                        <span className="text-gray-600">
+                          <strong>{comments.length}</strong> total {comments.length === 1 ? 'comment' : 'comments'}
+                        </span>
+                        <span className="text-blue-600">
+                          <strong>{getThreadedComments().length}</strong> {getThreadedComments().length === 1 ? 'thread' : 'threads'}
+                        </span>
+                        <span className="text-green-600">
+                          <strong>{getThreadsStats().resolvedThreads}</strong> resolved
+                        </span>
+                        <span className="text-orange-600">
+                          <strong>{getThreadsStats().openThreads}</strong> open
+                        </span>
+                        {getPriorityStats().criticalCount > 0 && (
+                          <span className="text-red-600 font-medium">
+                            🚨 <strong>{getPriorityStats().criticalCount}</strong> critical issues
+                          </span>
+                        )}
+                        {getPriorityStats().highCount > 0 && (
+                          <span className="text-amber-600 font-medium">
+                            ⚠️ <strong>{getPriorityStats().highCount}</strong> high priority
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-gray-500">
+                        Last updated {comments.length > 0 ? formatDate(comments[comments.length - 1].created_at) : 'never'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </form>
+              )}
+
+              {/* Enhanced Review Tab */}
+              {activeView === 'review' && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">📊 Clinical Analytics Dashboard</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                      {/* Overall Stats */}
+                      <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border border-blue-200">
+                        <div className="text-3xl font-bold text-blue-600 mb-2">{comments.length}</div>
+                        <div className="text-sm text-blue-700 font-medium">Total Comments</div>
+                      </div>
+                      
+                      <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl border border-green-200">
+                        <div className="text-3xl font-bold text-green-600 mb-2">{getThreadsStats().resolvedThreads}</div>
+                        <div className="text-sm text-green-700 font-medium">Resolved</div>
+                      </div>
+                      
+                      <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-amber-100 rounded-xl border border-orange-200">
+                        <div className="text-3xl font-bold text-orange-600 mb-2">{getThreadsStats().openThreads}</div>
+                        <div className="text-sm text-orange-700 font-medium">Open Threads</div>
+                      </div>
+                      
+                      <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl border border-purple-200">
+                        <div className="text-3xl font-bold text-purple-600 mb-2">{getPriorityStats().criticalCount}</div>
+                        <div className="text-sm text-purple-700 font-medium">Critical Issues</div>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Priority Distribution */}
+                    <div className="priority-grid">
+                      <div className="priority-item">
+                        <div className="text-2xl font-bold text-red-600 mb-1">{getPriorityStats().criticalCount}</div>
+                        <div className="text-sm text-red-700 font-medium">🚨 Critical</div>
+                        <div className="text-xs text-red-600 mt-1">Immediate Action</div>
+                      </div>
+                      
+                      <div className="priority-item">
+                        <div className="text-2xl font-bold text-orange-600 mb-1">{getPriorityStats().highCount}</div>
+                        <div className="text-sm text-orange-700 font-medium">⚠️ High</div>
+                        <div className="text-xs text-orange-600 mt-1">Urgent Review</div>
+                      </div>
+                      
+                      <div className="priority-item">
+                        <div className="text-2xl font-bold text-blue-600 mb-1">{getPriorityStats().mediumCount}</div>
+                        <div className="text-sm text-blue-700 font-medium">📋 Medium</div>
+                        <div className="text-xs text-blue-600 mt-1">Standard Priority</div>
+                      </div>
+                      
+                      <div className="priority-item">
+                        <div className="text-2xl font-bold text-gray-600 mb-1">{getPriorityStats().lowCount}</div>
+                        <div className="text-sm text-gray-700 font-medium">💭 Low</div>
+                        <div className="text-xs text-gray-600 mt-1">For Information</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Enhanced History Tab */}
+              {activeView === 'history' && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">🏥 Medical Activity Timeline</h3>
+                    
+                    <div className="space-y-4">
+                      {comments.length === 0 ? (
+                        <div className="text-center py-12 text-gray-500">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <p>No activity recorded yet</p>
+                        </div>
+                      ) : (
+                        comments
+                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                          .map((comment, index) => (
+                            <div key={comment.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+                              <div className={`w-10 h-10 bg-gradient-to-br ${getAvatarColor(comment.author_name)} rounded-full flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                                <span className="text-white font-bold text-sm">
+                                  {comment.author_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-gray-900">{comment.author_name}</span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(comment.author_role)}`}>
+                                      {getRoleIcon(comment.author_role)} {comment.author_role}
+                                    </span>
+                                    <span className="text-sm text-gray-500">{formatDate(comment.created_at)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {comment.priority && (
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(comment.priority)}`}>
+                                        {getPriorityIcon(comment.priority)} {comment.priority.toUpperCase()}
+                                      </span>
+                                    )}
+                                    {comment.data?.status === 'resolved' && (
+                                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                        ✅ Resolved
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-gray-700 text-sm leading-relaxed">
+                                  {comment.comment.length > 150 
+                                    ? `${comment.comment.substring(0, 150)}...` 
+                                    : comment.comment
+                                  }
+                                </p>
+                                {comment.data?.reactions && Object.keys(comment.data.reactions).length > 0 && (
+                                  <div className="flex items-center gap-2 mt-2">
+                                    {Object.entries(comment.data.reactions).map(([reaction, users]) => (
+                                      users.length > 0 && (
+                                        <span key={reaction} className="flex items-center gap-1 text-xs text-gray-500">
+                                          <span>
+                                            {reaction === 'like' ? '👍' : 
+                                             reaction === 'heart' ? '❤️' : 
+                                             reaction === 'laugh' ? '😄' : '👀'}
+                                          </span>
+                                          <span>{users.length}</span>
+                                        </span>
+                                      )
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Professional Delete Confirmation Dialog */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform animate-slide-up">
+            <div className="p-6">
+              {/* Icon and Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center animate-pulse">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Delete Comment</h3>
+                  <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+                </div>
+              </div>
+              
+              {/* Content */}
+              <div className="mb-6">
+                <p className="text-gray-700 leading-relaxed">
+                  Are you sure you want to delete this medical comment? This will permanently remove the comment 
+                  and all associated data from the review system.
+                </p>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setDeleteConfirm({show: false, commentId: null})}
+                  className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteConfirm.commentId && handleDeleteComment(deleteConfirm.commentId)}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                >
+                  Delete Comment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

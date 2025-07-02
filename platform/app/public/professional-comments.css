@@ -1,10 +1,223 @@
 /* Professional Medical Comments System CSS */
 
+/* Reset margins and fix header positioning - ONLY for comment pages */
+.comment-page {
+  margin: 0;
+  padding: 0;
+}
+
+/* Fix header to stick to top of screen - ONLY for comment pages */
+.comment-page .header-sticky-fix {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 9999 !important;
+}
+
+/* Add padding to body to compensate for fixed header - ONLY for comment pages */
+.comment-page.body-header-padding {
+  padding-top: 90px !important;
+}
+
+/* Mobile adjustments - ONLY for comment pages */
+@media (max-width: 768px) {
+  .comment-page.body-header-padding {
+    padding-top: 100px !important;
+  }
+  
+  .enhanced-tab {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .comment-author-name {
+    font-size: 16px !important;
+  }
+  
+  .current-seg-enhanced {
+    padding: 16px !important;
+  }
+}
+
 /* Global styles for medical interface */
 .medical-interface {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 50%, #e8eaf6 100%);
   min-height: 100vh;
+}
+
+/* Enhanced tab styling with vibrant colors */
+.enhanced-tabs {
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  border-radius: 16px;
+  padding: 6px;
+  display: flex;
+  gap: 4px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.enhanced-tab {
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.enhanced-tab.active {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4), 0 2px 8px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.enhanced-tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer-active 2s infinite;
+}
+
+@keyframes shimmer-active {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.enhanced-tab:not(.active) {
+  background: rgba(255, 255, 255, 0.7);
+  color: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.enhanced-tab:not(.active):hover {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  color: #0f172a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Enhanced user name styling */
+.enhanced-user-name {
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  font-size: 16px !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.enhanced-user-role {
+  font-weight: 600 !important;
+  color: #475569 !important;
+  font-size: 13px !important;
+}
+
+/* Enhanced "CURRENT SEG" styling */
+.current-seg-enhanced {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: white !important;
+  font-weight: 900 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4) !important;
+  animation: pulse-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow {
+  from { box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4); }
+  to { box-shadow: 0 8px 30px rgba(16, 185, 129, 0.6); }
+}
+
+.current-seg-text {
+  color: white !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced ID in current SEG */
+.current-seg-enhanced .id-display {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Enhanced priority and status badges */
+.priority-badge-enhanced {
+  font-weight: 800 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Enhanced author name in comments */
+.comment-author-name {
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  font-size: 18px !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced comment content */
+.comment-content {
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  line-height: 1.7;
+}
+
+/* Enhanced comment form styling */
+.medical-review-form {
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7) !important;
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.15) !important;
+}
+
+.medical-review-title {
+  color: #000000 !important;
+  font-weight: 900 !important;
+  font-size: 20px !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.medical-review-subtitle {
+  color: #000000 !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+}
+
+/* Enhanced ID display */
+.id-display {
+  font-size: 11px !important;
+  line-height: 1.4;
+  word-break: break-all;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: rgba(255, 255, 255, 0.9) !important;
+  max-height: 60px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.id-display::-webkit-scrollbar {
+  width: 4px;
+}
+
+.id-display::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.id-display::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
 }
 
 /* Custom scrollbar for better UX */
@@ -495,4 +708,537 @@
     background: rgba(30, 41, 59, 0.8);
     color: #f8fafc;
   }
+}
+
+/* Force all titles to be black */
+.comment-page h1,
+.comment-page h2, 
+.comment-page h3,
+.comment-page .text-black {
+  color: #000000 !important;
+  text-shadow: none !important;
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+/* Force timestamps and time elements to be black */
+.comment-page .text-slate-600,
+.comment-page .text-slate-500,
+.comment-page .text-gray-600,
+.comment-page .text-gray-500,
+.comment-page [class*="text-slate"],
+.comment-page [class*="text-gray"],
+.comment-page time,
+.comment-page [role="time"],
+.comment-page .timestamp,
+.comment-page [class*="time"] {
+  color: #000000 !important;
+  font-weight: 600 !important;
+}
+
+/* Force any remaining color variations to black */
+.comment-page * {
+  --tw-text-opacity: 1 !important;
+}
+
+.comment-page .text-xs {
+  color: #000000 !important;
+}
+
+/* Beautiful Priority Dropdown */
+.comment-page select {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border: 2px solid transparent !important;
+  border-radius: 12px !important;
+  padding: 8px 16px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.comment-page select:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+}
+
+.comment-page select:focus {
+  outline: none !important;
+  border-color: #4CAF50 !important;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3) !important;
+}
+
+/* Beautiful Headers with Black Text */
+.comment-page h1 {
+  color: #000000 !important;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%) !important;
+  padding: 16px 24px !important;
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  margin-bottom: 16px !important;
+  -webkit-text-fill-color: #000000 !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+}
+
+/* Force ALL elements inside h1 to be black */
+.comment-page h1 *,
+.comment-page h1 span,
+.comment-page h1 div,
+.comment-page h1 badge,
+.comment-page h1 .badge,
+.comment-page h1 [class*="badge"],
+.comment-page h1 [class*="tag"],
+.comment-page h1 [class*="label"] {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  text-shadow: none !important;
+}
+
+.comment-page h2 {
+  color: #000000 !important;
+  background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 50%, #e6f0ff 100%) !important;
+  padding: 12px 20px !important;
+  border-radius: 10px !important;
+  border: 1px solid #d1d5db !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04) !important;
+  margin-bottom: 12px !important;
+  -webkit-text-fill-color: #000000 !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+}
+
+/* Force ALL elements inside h2 to be black */
+.comment-page h2 *,
+.comment-page h2 span,
+.comment-page h2 div,
+.comment-page h2 badge,
+.comment-page h2 .badge,
+.comment-page h2 [class*="badge"],
+.comment-page h2 [class*="tag"],
+.comment-page h2 [class*="label"] {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  text-shadow: none !important;
+}
+
+/* Beautiful Priority Labels */
+.comment-page .bg-red-100 {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%) !important;
+  color: #8B0000 !important;
+  border-color: #ff6b9d !important;
+}
+
+.comment-page .bg-orange-100 {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%) !important;
+  color: #8B4513 !important;
+  border-color: #ff8a50 !important;
+}
+
+.comment-page .bg-blue-100 {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%) !important;
+  color: #003366 !important;
+  border-color: #50bcdf !important;
+}
+
+.comment-page .bg-gray-100 {
+  background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%) !important;
+  color: #4A4A4A !important;
+  border-color: #a8a8a8 !important;
+}
+
+/* Beautiful Role Colors */
+.comment-page .bg-purple-100 {
+  background: linear-gradient(135deg, #c471ed 0%, #f64f59 100%) !important;
+  color: #4A0E4E !important;
+  border-color: #a855f7 !important;
+}
+
+.comment-page .bg-green-100 {
+  background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%) !important;
+  color: #1B5E20 !important;
+  border-color: #4caf50 !important;
+}
+
+.comment-page .bg-pink-100 {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%) !important;
+  color: #880E4F !important;
+  border-color: #e91e63 !important;
+}
+
+/* Beautiful Emerald Badges for Header */
+.comment-page .bg-emerald-100 {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid #10b981 !important;
+  border-radius: 20px !important;
+  padding: 6px 14px !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2) !important;
+  transition: all 0.3s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.comment-page .bg-emerald-100:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+  background: linear-gradient(135deg, #065f46 0%, #047857 100%) !important;
+}
+
+/* Override emerald text color specifically */
+.comment-page .text-emerald-800 {
+  color: #ffffff !important;
+}
+
+/* Custom Badge Styles */
+.comment-page .series-badge {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid #60a5fa !important;
+  border-radius: 16px !important;
+  padding: 4px 12px !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25) !important;
+  transition: all 0.3s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-left: 8px !important;
+}
+
+.comment-page .series-badge:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.35) !important;
+}
+
+.comment-page .comment-count-badge {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid #c084fc !important;
+  border-radius: 16px !important;
+  padding: 4px 12px !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: 0 2px 6px rgba(168, 85, 247, 0.25) !important;
+  transition: all 0.3s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-left: 8px !important;
+}
+
+.comment-page .comment-count-badge:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(168, 85, 247, 0.35) !important;
+}
+
+/* Beautiful Post Review Button */
+.comment-page button[type="submit"] {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+  transition: all 0.3s ease !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+}
+
+.comment-page button[type="submit"]:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5) !important;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+}
+
+.comment-page button[type="submit"]:active {
+  transform: translateY(0) !important;
+}
+
+/* Beautiful Comment Input Area */
+.comment-page textarea {
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%) !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  font-size: 14px !important;
+  transition: all 0.3s ease !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+.comment-page textarea:focus {
+  outline: none !important;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), inset 0 2px 4px rgba(0,0,0,0.05) !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%) !important;
+}
+
+.comment-page textarea::placeholder {
+  color: #94a3b8 !important;
+  font-style: italic !important;
+}
+
+/* Beautiful Filter Buttons */
+.comment-page .filter-button {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  padding: 6px 12px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.comment-page .filter-button:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  transform: translateY(-1px) !important;
+}
+
+  .comment-page .filter-button.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3) !important;
+  }
+
+  /* Professional Chat Interface */
+  .comment-page .professional-chat-container {
+    background: #ffffff !important;
+    border-radius: 20px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+    overflow: hidden !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+  }
+
+  /* GitLab-Style Medical Comment System */
+  .comment-page .medical-comment-system {
+    background: #ffffff !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid #e5e7eb !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Comment form styling */
+  .comment-page .medical-comment-system textarea {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    line-height: 1.5 !important;
+    border-color: #d1d5db !important;
+  }
+
+  .comment-page .medical-comment-system textarea:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  }
+
+  /* Resolved comment styling */
+  .comment-page .medical-comment-system .bg-green-50 {
+    background-color: #f0fdf4 !important;
+    border-left: 4px solid #22c55e !important;
+  }
+
+  /* Priority badges */
+  .comment-page .medical-comment-system .px-2.py-1 {
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+  }
+
+  /* Action buttons */
+  .comment-page .medical-comment-system button {
+    transition: all 0.2s ease !important;
+  }
+
+  .comment-page .medical-comment-system button:hover {
+    transform: translateY(-1px) !important;
+  }
+
+  /* Clean layout for GitLab-style comments */
+  .comment-page .comment-page-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Comment thread spacing */
+  .comment-page .medical-comment-system .divide-y > div {
+    padding: 24px !important;
+  }
+
+  /* Prose styling for comment content */
+  .comment-page .prose p {
+    margin-bottom: 0 !important;
+    color: #374151 !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Ensure proper text wrapping */
+  .comment-page .medical-comment-system .whitespace-pre-wrap {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .comment-page .chat-messages-area::-webkit-scrollbar {
+    width: 6px !important;
+  }
+
+  .comment-page .chat-messages-area::-webkit-scrollbar-track {
+    background: #f1f5f9 !important;
+    border-radius: 3px !important;
+  }
+
+  .comment-page .chat-messages-area::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #64748b 0%, #475569 100%) !important;
+    border-radius: 3px !important;
+  }
+
+  .comment-page .chat-messages-area::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #475569 0%, #334155 100%) !important;
+  }
+
+  /* Message animations */
+  .comment-page .chat-messages-area > div > div {
+    animation: slideIn 0.3s ease-out !important;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Fix header z-index and positioning issues */
+  .header-fix-container {
+    position: relative !important;
+    z-index: 999 !important;
+  }
+
+  /* Ensure header doesn't overlap content */
+  .comment-page-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 100vh !important;
+  }
+
+  .comment-page-content {
+    flex: 1 !important;
+    padding-top: 20px !important;
+  }
+
+  /* Professional header styling */
+  .header-section {
+    background: linear-gradient(135deg, #1e293b 0%, #3730a3 100%) !important;
+    border-bottom: 2px solid #4338ca !important;
+    z-index: 998 !important;
+    position: relative !important;
+  }
+
+  .comment-page .chat-messages {
+    scrollbar-width: thin !important;
+    scrollbar-color: #cbd5e1 #f1f5f9 !important;
+  }
+
+  .comment-page .chat-messages::-webkit-scrollbar {
+    width: 6px !important;
+  }
+
+  .comment-page .chat-messages::-webkit-scrollbar-track {
+    background: #f1f5f9 !important;
+    border-radius: 3px !important;
+  }
+
+  .comment-page .chat-messages::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+    border-radius: 3px !important;
+  }
+
+  .comment-page .chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8 !important;
+  }
+
+  /* Message Bubbles */
+  .comment-page .message-bubble {
+    animation: messageSlideIn 0.3s ease-out !important;
+  }
+
+  @keyframes messageSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .comment-page .message-sent .message-content {
+    border-bottom-right-radius: 4px !important;
+  }
+
+  .comment-page .message-received .message-content {
+    border-bottom-left-radius: 4px !important;
+  }
+
+  /* Chat Input Enhancements */
+  .comment-page .quick-message-input input:focus {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15) !important;
+  }
+
+  /* Online Status Pulse */
+  @keyframes pulse-green {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .comment-page .animate-pulse {
+    animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+  }
+
+/* Override any gradient text */
+.comment-page .bg-gradient-to-r,
+.comment-page .bg-clip-text,
+.comment-page .text-transparent {
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  -webkit-text-fill-color: #000000 !important;
+  color: #000000 !important;
 } 

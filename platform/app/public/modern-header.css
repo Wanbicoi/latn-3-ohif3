@@ -2,10 +2,37 @@
 
 /* Body layout compensation */
 body {
-  padding-top: 64px !important;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%) !important;
   color: #e2e8f0 !important;
+  padding-top: 60px !important; /* Compensate for fixed header */
+}
+
+/* OHIF main container adjustment */
+#root,
+.ohif-viewer {
+  padding-top: 0 !important;
+}
+
+/* Fix main viewport area */
+.viewport-grid-container,
+.viewport-grid,
+[data-cy="viewport-grid"] {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Ensure header doesn't overlap content */
+.header,
+.ohif-header,
+[data-cy="header"],
+[class*="header"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1000 !important;
+  height: 60px !important;
 }
 
 /* Force horizontal layout for OHIF toolbars */
@@ -97,10 +124,54 @@ body {
   background: linear-gradient(135deg, #64748b, #94a3b8);
 }
 
+/* OHIF specific layout fixes */
+.viewport-wrapper,
+.viewer-layout,
+.viewport-panel,
+[data-cy="viewport-panel"] {
+  margin-top: 0 !important;
+  top: 0 !important;
+}
+
+/* Fix OHIF study browser sidebar positioning */
+.side-panel,
+.ohif-side-panel,
+[data-cy="study-browser-panel"] {
+  top: 60px !important;
+  height: calc(100vh - 60px) !important;
+}
+
+/* Fix OHIF toolbar positioning */
+.tool-palette,
+.ohif-tool-palette,
+[data-cy="tool-palette"] {
+  top: 60px !important;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   body {
-    padding-top: 64px !important;
+    padding-top: 70px !important;
+  }
+  
+  .header,
+  .ohif-header,
+  [data-cy="header"],
+  [class*="header"] {
+    height: 70px !important;
+  }
+  
+  .side-panel,
+  .ohif-side-panel,
+  [data-cy="study-browser-panel"] {
+    top: 70px !important;
+    height: calc(100vh - 70px) !important;
+  }
+  
+  .tool-palette,
+  .ohif-tool-palette,
+  [data-cy="tool-palette"] {
+    top: 70px !important;
   }
   
   .toolbar-section button,

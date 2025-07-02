@@ -1,0 +1,1037 @@
+/* Comment Page Layout CSS */
+/* This file ensures the comment page has proper layout without OHIF interference */
+
+/* Reset body padding for comment page only */
+body.comment-page-body {
+  padding-top: 0 !important;
+  margin: 0 !important;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  min-height: 100vh !important;
+}
+
+/* Comment page specific header positioning */
+.comment-page-body .modern-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1000 !important;
+  height: 60px !important;
+}
+
+/* Main content area for comment page */
+.comment-page-body .comment-main-content {
+  margin-top: 70px !important; /* Space for fixed header */
+  padding: 20px !important;
+  min-height: calc(100vh - 70px) !important;
+}
+
+/* Comment container styling */
+.comment-page-body .comment-container {
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  background: white !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden !important;
+}
+
+/* Enhanced dropdown menu styling */
+.comment-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: 32px;
+  min-width: 140px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e5e7eb;
+  padding: 8px 0;
+  z-index: 100;
+  animation: slideDown 0.2s ease-out;
+}
+
+/* Emoji picker specific styling */
+.emoji-picker-popup {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 8px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e5e7eb;
+  padding: 16px;
+  z-index: 150;
+  min-width: 280px;
+  animation: slideDown 0.2s ease-out;
+}
+
+.emoji-grid-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.emoji-grid-button:hover {
+  background: #f3f4f6;
+  transform: scale(1.1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced reaction button styling */
+.reaction-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #4b5563;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.reaction-button:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.15);
+}
+
+.reaction-button.active {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  box-shadow: 0 2px 8px -2px rgba(59, 130, 246, 0.25);
+}
+
+/* Enhanced tooltip styling */
+.reaction-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: #1f2937;
+  color: white;
+  font-size: 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+}
+
+.reaction-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1f2937;
+}
+
+.group:hover .reaction-tooltip {
+  opacity: 1;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .comment-page-body .comment-main-content {
+    margin-top: 80px !important;
+    padding: 10px !important;
+  }
+  
+  .comment-page-body .modern-header {
+    height: 70px !important;
+  }
+  
+  .reaction-button {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
+
+/* Ensure comment threads are properly styled */
+.comment-thread {
+  border-left: 2px solid #e5e7eb;
+  margin-left: 24px;
+  padding-left: 16px;
+}
+
+.comment-thread:hover {
+  border-left-color: #3b82f6;
+}
+
+/* Enhanced delete button styling */
+.delete-comment-button {
+  color: #dc2626;
+  transition: all 0.2s ease;
+}
+
+.delete-comment-button:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* Priority badge enhancements */
+.priority-critical {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: white;
+  box-shadow: 0 2px 8px -2px rgba(220, 38, 38, 0.3);
+}
+
+.priority-high {
+  background: linear-gradient(135deg, #ea580c, #f97316);
+  color: white;
+  box-shadow: 0 2px 8px -2px rgba(234, 88, 12, 0.3);
+}
+
+.priority-medium {
+  background: linear-gradient(135deg, #0891b2, #06b6d4);
+  color: white;
+  box-shadow: 0 2px 8px -2px rgba(8, 145, 178, 0.3);
+}
+
+.priority-low {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: white;
+  box-shadow: 0 2px 8px -2px rgba(5, 150, 105, 0.3);
+}
+
+/* Enhanced action buttons */
+.comment-action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.comment-action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* Reply button specific styling */
+.reply-button {
+  color: #2563eb;
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.reply-button:hover {
+  color: #1d4ed8;
+  background: #bfdbfe;
+  border-color: #60a5fa;
+}
+
+/* React button specific styling */
+.react-button {
+  color: #6b7280;
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.react-button:hover {
+  color: #374151;
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Resolve button specific styling */
+.resolve-button-inactive {
+  color: #6b7280;
+  background: #ffffff;
+  border-color: #d1d5db;
+}
+
+.resolve-button-inactive:hover {
+  color: #059669;
+  background: #f0fdf4;
+  border-color: #6ee7b7;
+}
+
+.resolve-button-active {
+  color: #047857;
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.resolve-button-active:hover {
+  color: #059669;
+  background: #a7f3d0;
+  border-color: #34d399;
+}
+
+/* Dropdown button styling */
+.dropdown-button {
+  color: #6b7280;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid;
+  transition: all 0.2s ease;
+}
+
+.dropdown-button:hover {
+  color: #374151;
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  transform: scale(1.05);
+}
+
+/* Custom delete dialog styling */
+.delete-dialog-overlay {
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.delete-dialog-content {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Enhanced button styling for dialogs */
+.dialog-button-cancel {
+  transition: all 0.2s ease;
+}
+
+.dialog-button-cancel:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+}
+
+.dialog-button-delete {
+  transition: all 0.2s ease;
+}
+
+.dialog-button-delete:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -4px rgba(220, 38, 38, 0.3);
+}
+
+/* Reply emoji picker positioning */
+.reply-emoji-picker {
+  position: absolute;
+  left: -120px;
+  top: 100%;
+  margin-top: 8px;
+  z-index: 200;
+}
+
+/* Improved emoji grid for replies */
+.reply-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.reply-emoji-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.reply-emoji-button:hover {
+  background: #f3f4f6;
+  transform: scale(1.15);
+}
+
+/* Enhanced main comment textarea styling */
+.main-comment-textarea {
+  transition: all 0.2s ease;
+}
+
+.main-comment-textarea:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -8px rgba(59, 130, 246, 0.25);
+}
+
+/* Hint text styling */
+.comment-hints {
+  transition: opacity 0.2s ease;
+}
+
+.comment-hints:hover {
+  opacity: 0.8;
+}
+
+/* Enhanced keyboard shortcut hint */
+.keyboard-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.keyboard-hint:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+/* Enhanced stats styling */
+.stats-container {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.9));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.2s ease;
+}
+
+.stats-container:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 1));
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* Priority badge enhancements */
+.priority-badge-critical {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 2px 8px -2px rgba(220, 38, 38, 0.3);
+  animation: pulse 2s infinite;
+}
+
+.priority-badge-high {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 2px 8px -2px rgba(217, 119, 6, 0.3);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* Stats number highlighting */
+.stats-number {
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* Enhanced priority distribution grid */
+.priority-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  background: rgba(248, 250, 252, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.priority-item {
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+}
+
+.priority-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced resolved comment styling */
+.comment-resolved {
+  background: #f0fdf4 !important;
+  border-left: 4px solid #22c55e !important;
+  position: relative;
+}
+
+.comment-resolved::before {
+  content: "✅ RESOLVED";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #22c55e;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Make sure resolved styling has high specificity */
+.medical-comment-system .comment-resolved {
+  background: #f0fdf4 !important;
+  border-left: 4px solid #22c55e !important;
+}
+
+/* Override any conflicting background colors */
+.comment-resolved.p-6 {
+  background: #f0fdf4 !important;
+}
+
+/* Enhanced Medical Comment Page CSS - Professional GitLab-style Interface */
+
+/* Prevent conflicts with OHIF - apply only to comment page */
+body:not(.comment-page-body) .comment-page-wrapper,
+body:not(.comment-page-body) .comment-page-content,
+body:not(.comment-page-body) .medical-comment-system {
+  display: none !important;
+}
+
+/* Page-specific body styling */
+.medical-interface.comment-page-body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden;
+}
+
+/* Enhanced Header Section */
+.header-section {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e40af 100%);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced SEG Information Card */
+.series-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  animation: pulse 2s infinite;
+}
+
+.current-seg-enhanced {
+  background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+  border: 2px solid #34d399;
+}
+
+.current-seg-text {
+  color: white;
+  font-weight: 600;
+}
+
+.id-display {
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.5);
+  word-break: break-all;
+}
+
+/* Enhanced Stats Container */
+.stats-container {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.95));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.stats-container:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 1));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.stats-number {
+  font-weight: 700;
+  font-size: 1.1em;
+}
+
+/* Comment Count Badge */
+.comment-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Enhanced Navigation Tabs */
+.enhanced-tabs {
+  display: flex;
+  gap: 0.25rem;
+  background: rgba(241, 245, 249, 0.8);
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.enhanced-tab {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+  color: rgb(100, 116, 139);
+  cursor: pointer;
+}
+
+.enhanced-tab:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: rgb(51, 65, 85);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.enhanced-tab.active {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Enhanced Main Comment Textarea */
+.main-comment-textarea {
+  transition: all 0.3s ease;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.main-comment-textarea:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+}
+
+/* Comment Action Buttons - Professional Style */
+.comment-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: white;
+}
+
+.comment-action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Resolve Button States */
+.resolve-button-inactive {
+  color: #374151;
+  border-color: #d1d5db;
+  background: white;
+}
+
+.resolve-button-inactive:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.resolve-button-active {
+  color: white;
+  border-color: #059669;
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.resolve-button-active:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Reply Button */
+.reply-button {
+  color: #3b82f6;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.reply-button:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+/* React Button */
+.react-button {
+  color: #6b7280;
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.react-button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+/* Dropdown Button */
+.dropdown-button {
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.dropdown-button:hover {
+  background: #f3f4f6;
+  color: #374151;
+  transform: scale(1.1);
+}
+
+/* Enhanced Emoji Picker Popup */
+.emoji-picker-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.5rem;
+  min-width: 300px;
+  max-width: 320px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 1rem;
+  z-index: 1000;
+  animation: slideDown 0.2s ease-out;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.emoji-grid-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 1.25rem;
+}
+
+.emoji-grid-button:hover {
+  background: #f3f4f6;
+  transform: scale(1.1);
+}
+
+.emoji-grid-button:active {
+  transform: scale(0.95);
+}
+
+/* Enhanced Resolved Comment Styling */
+.comment-resolved {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%) !important;
+  border-left: 4px solid #22c55e !important;
+  border-right: 1px solid #bbf7d0 !important;
+  border-top: 1px solid #bbf7d0 !important;
+  border-bottom: 1px solid #bbf7d0 !important;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1) !important;
+}
+
+.comment-resolved::before {
+  content: "✅ RESOLVED";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(34, 197, 94, 0.3);
+  animation: pulse 2s infinite;
+}
+
+/* Enhanced Priority Badges */
+.priority-badge-critical {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+  animation: pulse 2s infinite;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.priority-badge-high {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.priority-badge-medium {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.priority-badge-low {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Enhanced Priority Distribution Grid */
+.priority-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(248, 250, 252, 0.5);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.priority-item {
+  text-align: center;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  background: white;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.priority-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Enhanced Comment Hints */
+.comment-hints {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.keyboard-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.keyboard-hint:hover {
+  background: rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Professional Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes animate-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-up {
+  animation: animate-slide-up 0.3s ease-out;
+}
+
+/* Enhanced Medical Interface Responsive Design */
+@media (max-width: 768px) {
+  .header-section {
+    padding: 0.75rem 1rem;
+  }
+  
+  .enhanced-tabs {
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  
+  .enhanced-tab {
+    padding: 0.5rem 1rem;
+    text-align: center;
+  }
+  
+  .stats-container {
+    padding: 1rem;
+  }
+  
+  .priority-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  .emoji-picker-popup {
+    min-width: 280px;
+    max-width: 90vw;
+  }
+}
+
+/* Enhanced Focus States */
+.comment-action-button:focus,
+.enhanced-tab:focus,
+.main-comment-textarea:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Dark Mode Support (if needed) */
+@media (prefers-color-scheme: dark) {
+  .medical-interface.comment-page-body {
+    background: linear-gradient(135deg, #1f2937 0%, #111827 50%, #0f172a 100%);
+  }
+  
+  .stats-container {
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.95));
+    border-color: rgba(75, 85, 99, 0.8);
+  }
+} 

@@ -517,14 +517,16 @@ const Thumbnail = ({
                     </>
                   )}
 
-                  {/* Comment - Only for SEG modality */}
+                  {/* Comment - Only for SEG modality - FIXED: Use seriesInstanceUID */}
                   {modality === 'SEG' && (
                     <DropdownMenuItem
                       onSelect={() => {
                         const urlParams = new URLSearchParams(window.location.search);
                         const taskId = urlParams.get('taskId');
                         const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
-                        const commentUrl = `/ohif3/comments?segmentationId=${displaySetInstanceUID}&segmentIndex=1&taskId=${taskId}&studyInstanceUIDs=${studyInstanceUIDs}`;
+                        // CRITICAL FIX: Use seriesInstanceUID (displaySetInstanceUID) for SEG-specific comments
+                        const commentUrl = `/ohif3/comments?segmentationId=${displaySetInstanceUID}&segmentIndex=1&taskId=${taskId}&StudyInstanceUIDs=${studyInstanceUIDs}&seriesInstanceUID=${seriesInstanceUID}`;
+                        console.log(`🔗 Opening comments for SEG: ${seriesInstanceUID}`);
                         window.location.href = commentUrl;
                       }}
                       className="gap-[6px] text-purple-400 hover:text-purple-300"
@@ -701,14 +703,16 @@ const Thumbnail = ({
                 </>
               )}
 
-              {/* Comment - Only for SEG modality */}
+              {/* Comment - Only for SEG modality - FIXED: Use seriesInstanceUID */}
               {modality === 'SEG' && (
                 <DropdownMenuItem
                   onSelect={() => {
                     const urlParams = new URLSearchParams(window.location.search);
                     const taskId = urlParams.get('taskId');
                     const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
-                    const commentUrl = `/ohif3/comments?segmentationId=${displaySetInstanceUID}&segmentIndex=1&taskId=${taskId}&studyInstanceUIDs=${studyInstanceUIDs}`;
+                    // CRITICAL FIX: Use seriesInstanceUID for SEG-specific comments
+                    const commentUrl = `/ohif3/comments?segmentationId=${displaySetInstanceUID}&segmentIndex=1&taskId=${taskId}&StudyInstanceUIDs=${studyInstanceUIDs}&seriesInstanceUID=${seriesInstanceUID}`;
+                    console.log(`🔗 Opening comments for SEG: ${seriesInstanceUID}`);
                     window.location.href = commentUrl;
                   }}
                   className="gap-[6px] text-purple-400 hover:text-purple-300"

@@ -1,0 +1,190 @@
+/* OHIF Layout Fix - Prevent Header Overlap */
+
+/* Main body compensation for fixed header - ONLY for OHIF viewer pages */
+body:not(.comment-page-body) {
+  padding-top: 60px !important;
+  box-sizing: border-box !important;
+}
+
+/* Specific targeting for OHIF routes */
+body[data-route*="viewer"],
+body[data-route*="ohif"] {
+  padding-top: 60px !important;
+  box-sizing: border-box !important;
+}
+
+/* Comment page should NOT have OHIF padding */
+body.comment-page-body {
+  padding-top: 0 !important;
+}
+
+/* Ensure OHIF root containers respect the padding */
+#root {
+  min-height: calc(100vh - 60px) !important;
+  margin-top: 0 !important;
+}
+
+/* Fix main OHIF viewer container */
+.ohif-viewer,
+.app-main,
+[data-cy="app-main"] {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  top: 0 !important;
+}
+
+/* Viewport grid container fixes */
+.viewport-grid-container,
+.viewport-grid,
+.viewports-container,
+[data-cy="viewport-grid"],
+[data-cy="viewports-container"] {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  top: 0 !important;
+  height: calc(100vh - 60px) !important;
+}
+
+/* Individual viewport panels */
+.viewport-element,
+.viewport-panel,
+[data-cy="viewport"],
+[class*="viewport"]:not(.viewport-grid):not(.viewport-grid-container) {
+  margin-top: 0 !important;
+  top: 0 !important;
+}
+
+/* OHIF header positioning */
+.ohif-header,
+.header,
+.app-header,
+[data-cy="header"],
+[class*="Header"]:not([class*="patient"]):not([class*="study"]) {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1000 !important;
+  height: 60px !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  border-bottom: 1px solid rgba(52, 211, 153, 0.2) !important;
+}
+
+/* Side panels positioning */
+.side-panel,
+.ohif-side-panel,
+.panel-left,
+.panel-right,
+[data-cy="study-browser-panel"],
+[data-cy="panel-left"],
+[data-cy="panel-right"] {
+  top: 60px !important;
+  height: calc(100vh - 60px) !important;
+  position: fixed !important;
+}
+
+/* Tool palette positioning */
+.tool-palette,
+.ohif-tool-palette,
+[data-cy="tool-palette"] {
+  top: 60px !important;
+  z-index: 999 !important;
+}
+
+/* Toolbar positioning */
+.toolbar,
+.ohif-toolbar,
+.toolbar-section,
+[data-cy="toolbar"] {
+  position: relative !important;
+  z-index: 998 !important;
+}
+
+/* Study browser positioning */
+.study-browser,
+[data-cy="study-browser"] {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Modals and overlays */
+.modal,
+.overlay,
+.tooltip,
+[data-cy="modal"],
+[data-cy="overlay"] {
+  z-index: 9999 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  body {
+    padding-top: 70px !important;
+  }
+  
+  #root {
+    min-height: calc(100vh - 70px) !important;
+  }
+  
+  .viewport-grid-container,
+  .viewport-grid,
+  .viewports-container,
+  [data-cy="viewport-grid"],
+  [data-cy="viewports-container"] {
+    height: calc(100vh - 70px) !important;
+  }
+  
+  .ohif-header,
+  .header,
+  .app-header,
+  [data-cy="header"],
+  [class*="Header"]:not([class*="patient"]):not([class*="study"]) {
+    height: 70px !important;
+  }
+  
+  .side-panel,
+  .ohif-side-panel,
+  .panel-left,
+  .panel-right,
+  [data-cy="study-browser-panel"],
+  [data-cy="panel-left"],
+  [data-cy="panel-right"] {
+    top: 70px !important;
+    height: calc(100vh - 70px) !important;
+  }
+  
+  .tool-palette,
+  .ohif-tool-palette,
+  [data-cy="tool-palette"] {
+    top: 70px !important;
+  }
+}
+
+/* Fix for any remaining layout issues */
+.cornerstone-canvas-wrapper,
+.cornerstone-viewport,
+[data-cy="cornerstone-viewport"] {
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+/* Ensure content doesn't leak behind header */
+.main-content,
+.content-wrapper,
+.app-content {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Debug: temporary visual aid (remove in production) */
+/* 
+.ohif-header {
+  border: 2px solid red !important;
+}
+
+.viewport-grid {
+  border: 2px solid blue !important;
+}
+*/ 

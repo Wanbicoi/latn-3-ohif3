@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration - Using working credentials from latn-5
+// Supabase configuration - Updated with new database credentials
 const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+// Note: If 6LiR1SKmg6bMcgMT is the new service role key, replace the above key
 
 export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
   db: {
