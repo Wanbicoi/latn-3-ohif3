@@ -1115,34 +1115,77 @@ const SegmentComments: React.FC = () => {
             </div>
 
             {/* Enhanced Stats Header */}
-            <div className="stats-container mt-6 p-4 rounded-xl">
+            <div className="bg-white mt-6 p-6 rounded-xl border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-6 flex-wrap">
-                  <span className="text-gray-600 text-sm">
-                    <span className="stats-number">{comments.length}</span> total {comments.length === 1 ? 'comment' : 'comments'}
-                  </span>
-                  <span className="text-blue-600 text-sm">
-                    <span className="stats-number">{getThreadsStats().totalThreads}</span> {getThreadsStats().totalThreads === 1 ? 'thread' : 'threads'}
-                  </span>
-                  <span className="text-green-600 text-sm">
-                    <span className="stats-number">{getThreadsStats().resolvedThreads}</span> resolved
-                  </span>
-                  <span className="text-orange-600 text-sm">
-                    <span className="stats-number">{getThreadsStats().openThreads}</span> open
-                  </span>
-                  {getPriorityStats().criticalCount > 0 && (
-                    <span className="priority-badge-critical">
-                      🚨 {getPriorityStats().criticalCount} critical issues
+                  {/* Total Comments - Gray */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd"/>
+                    </svg>
+                    <span className="text-gray-700 text-sm font-medium">
+                      <span className="font-bold text-gray-900">{comments.length}</span> total {comments.length === 1 ? 'comment' : 'comments'}
                     </span>
+                  </div>
+
+                  {/* Threads - Blue */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+                      <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/>
+                    </svg>
+                    <span className="text-blue-700 text-sm font-medium">
+                      <span className="font-bold text-blue-900">{getThreadsStats().totalThreads}</span> {getThreadsStats().totalThreads === 1 ? 'thread' : 'threads'}
+                    </span>
+                  </div>
+
+                  {/* Resolved - Green */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-200">
+                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                    </svg>
+                    <span className="text-green-700 text-sm font-medium">
+                      <span className="font-bold text-green-900">{getThreadsStats().resolvedThreads}</span> resolved
+                    </span>
+                  </div>
+
+                  {/* Open - Orange */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200">
+                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
+                    </svg>
+                    <span className="text-orange-700 text-sm font-medium">
+                      <span className="font-bold text-orange-900">{getThreadsStats().openThreads}</span> open
+                    </span>
+                  </div>
+
+                  {/* Priority Badges */}
+                  {getPriorityStats().criticalCount > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg border border-red-200">
+                      <span className="text-red-600 text-lg">🚨</span>
+                      <span className="text-red-700 text-sm font-medium">
+                        <span className="font-bold text-red-900">{getPriorityStats().criticalCount}</span> critical issues
+                      </span>
+                    </div>
                   )}
                   {getPriorityStats().highCount > 0 && (
-                    <span className="priority-badge-high">
-                      ⚠️ {getPriorityStats().highCount} high priority
-                    </span>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <span className="text-yellow-600 text-lg">⚠️</span>
+                      <span className="text-yellow-700 text-sm font-medium">
+                        <span className="font-bold text-yellow-900">{getPriorityStats().highCount}</span> high priority
+                      </span>
+                    </div>
                   )}
                 </div>
-                <div className="text-xs text-slate-500 font-medium">
-                  🔄 Real-time updates • 🔒 Secure • 💾 Auto-saved
+                <div className="text-xs text-slate-500 font-medium flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span>Real-time</span>
+                  </div>
+                  <span>•</span>
+                  <span>🔒 Secure</span>
+                  <span>•</span>
+                  <span>💾 Auto-saved</span>
                 </div>
               </div>
             </div>

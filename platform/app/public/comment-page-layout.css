@@ -1137,70 +1137,42 @@ body:not(.comment-page-body) .medical-comment-system {
   }
 }
 
-/* OHIF-style User Dropdown Styling */
-.comment-page-body .header-section .relative div[style*="backgroundColor"] {
-  animation: slideDown 0.15s ease-out;
+/* User Dropdown Menu Styling */
+.user-dropdown-menu {
+  animation: slideDown 0.2s ease-out;
   transform-origin: top right;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(229, 231, 235, 0.8);
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* OHIF Button hover effects */
-.comment-page-body .header-section button.group:hover {
-  transform: scale(1.02);
-}
-
-.comment-page-body .header-section button.group:hover .text-white {
-  color: #6ee7b7 !important;
-}
-
-/* Dropdown buttons in OHIF style */
-.comment-page-body div[style*="backgroundColor"] button {
+/* User dropdown buttons hover effects */
+.comment-page-body .user-dropdown-menu button {
   transition: all 0.2s ease;
 }
 
-.comment-page-body div[style*="backgroundColor"] button:hover {
-  background: rgba(51, 65, 85, 0.4) !important;
+.comment-page-body .user-dropdown-menu button:hover {
+  transform: translateX(3px);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
-/* Dashboard button special hover */
-.comment-page-body div[style*="backgroundColor"] button:first-of-type:hover {
-  background: rgba(51, 65, 85, 0.4) !important;
+/* User profile section in dropdown */
+.comment-page-body .user-dropdown-menu .border-b {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
-/* Logout button hover in OHIF style */
-.comment-page-body div[style*="backgroundColor"] button:last-child:hover {
-  background: rgba(127, 29, 29, 0.2) !important;
+/* Logout button special styling */
+.comment-page-body .user-dropdown-menu button:last-child {
+  color: #dc2626;
 }
 
-/* Role-based gradient animations */
-.comment-page-body .bg-gradient-to-br {
-  transition: all 0.3s ease;
+.comment-page-body .user-dropdown-menu button:last-child:hover {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+  color: #b91c1c !important;
+  transform: translateX(5px) !important;
 }
 
-.comment-page-body .bg-gradient-to-br:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-/* Text color overrides for OHIF dropdown */
-.comment-page-body div[style*="backgroundColor"] .text-white {
-  color: #ffffff !important;
-}
-
-.comment-page-body div[style*="backgroundColor"] .text-slate-400 {
-  color: #94a3b8 !important;
-}
-
-.comment-page-body div[style*="backgroundColor"] .text-red-400 {
-  color: #f87171 !important;
+/* User dropdown arrow indicator */
+.comment-page-body .header-section button:hover svg {
+  transform: rotate(180deg);
+  transition: transform 0.2s ease;
 }
