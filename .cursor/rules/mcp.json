@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "jira-nvidia": {
+      "url": "https://mcp.composio.dev/composio/server/4bdf796b-9459-4763-b610-af652c133c5e/mcp",
+      "transport": "http"
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_e89987bc23bce4dc99ba1862813d4ae12c19e6c9",
+        "--project-ref",
+        "bmeemseeqpnsqgwdpcoj"
+      ],
+      "alwaysAllow": [
+        "get_project_url",
+        "list_tables",
+        "describe_table"
+      ]
+    }
+  }
+}

@@ -13,6 +13,9 @@ import PrivateRoute from './PrivateRoute';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import CommentsWorkspace from './CommentsWorkspace';
+import TestComments from './TestComments';
+import ProfessionalDemo from './ProfessionalDemo';
+import SegmentComments from './SegmentComments';
 
 const NotFoundServer = ({
   message = 'Unable to query for studies at this time. Check your data source configuration or network connection',
@@ -79,6 +82,26 @@ const bakedInRoutes = [
     path: '/comments/:segmentName',
     children: CommentsWorkspace,
     private: true,
+  },
+  {
+    path: '/test-comments',
+    children: TestComments,
+    private: false,
+  },
+  {
+    path: '/professional-demo',
+    children: ProfessionalDemo,
+    private: false,
+  },
+  {
+    path: '/comments',
+    children: SegmentComments,
+    private: false,
+  },
+  {
+    path: '/ohif3/comments',
+    children: SegmentComments,
+    private: false,
   },
 ];
 

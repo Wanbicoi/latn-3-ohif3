@@ -58,6 +58,7 @@ interface SegmentationTableContext {
   onSegmentationEdit: (segmentationId: string) => void;
   onSegmentColorClick: (segmentationId: string, segmentIndex: number) => void;
   onSegmentDelete: (segmentationId: string, segmentIndex: number) => void;
+  onSegmentComment?: (segmentationId: string, segmentIndex: number) => void;
   onToggleSegmentVisibility: (segmentationId: string, segmentIndex: number) => void;
   onToggleSegmentLock: (segmentationId: string, segmentIndex: number) => void;
   onToggleSegmentationRepresentationVisibility: (segmentationId: string, type: string) => void;
@@ -77,4 +78,5 @@ interface SegmentationTableContext {
 const [SegmentationTableProvider, useSegmentationTableContext] =
   createContext<SegmentationTableContext>('SegmentationTable');
 
-export { SegmentationTableProvider, useSegmentationTableContext, SegmentationTableContext };
+export { SegmentationTableProvider, useSegmentationTableContext };
+export type { SegmentationTableContext };

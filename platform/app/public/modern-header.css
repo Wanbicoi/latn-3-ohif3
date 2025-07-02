@@ -1,0 +1,250 @@
+/* Modern Dark Header Styling for OHIF Medical AI Platform */
+
+/* Body layout compensation */
+body {
+  padding-top: 64px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%) !important;
+  color: #e2e8f0 !important;
+}
+
+/* Force horizontal layout for OHIF toolbars */
+.ohif-toolbar,
+[data-cy*="toolbar"],
+.toolbar-section,
+.toolbar-row,
+[class*="toolbar"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+/* Hide connection status indicators */
+.connection-status,
+[class*="connect"],
+[data-testid*="connection"],
+.status-indicator {
+  display: none !important;
+}
+
+/* Dark theme button styling for toolbar */
+.toolbar-section button,
+.ohif-toolbar button,
+[data-cy*="toolbar"] button {
+  min-width: 40px !important;
+  min-height: 40px !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+  border: 1px solid rgb(71 85 105 / 0.5) !important;
+  background: rgba(51, 65, 85, 0.5) !important;
+  color: rgb(203 213 225) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.toolbar-section button:hover,
+.ohif-toolbar button:hover,
+[data-cy*="toolbar"] button:hover {
+  background: rgb(51 65 85) !important;
+  color: rgb(52 211 153) !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 4px 12px rgba(52, 211, 153, 0.2) !important;
+  border-color: rgb(34 197 94) !important;
+}
+
+.toolbar-section button:active,
+.ohif-toolbar button:active,
+[data-cy*="toolbar"] button:active {
+  transform: scale(1.05) !important;
+}
+
+/* Active button state */
+.toolbar-section button.active,
+.ohif-toolbar button.active,
+[data-cy*="toolbar"] button.active,
+.toolbar-section button[data-active="true"],
+.ohif-toolbar button[data-active="true"],
+[data-cy*="toolbar"] button[data-active="true"] {
+  background: linear-gradient(135deg, rgb(34 197 94), rgb(52 211 153)) !important;
+  color: white !important;
+  border-color: rgb(34 197 94) !important;
+}
+
+/* Dark theme scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #475569, #64748b);
+  border-radius: 10px;
+  border: 2px solid #1e293b;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #64748b, #94a3b8);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  body {
+    padding-top: 64px !important;
+  }
+  
+  .toolbar-section button,
+  .ohif-toolbar button,
+  [data-cy*="toolbar"] button {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    width: 36px !important;
+    height: 36px !important;
+  }
+}
+
+/* Loading animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Dark medical theme overrides */
+.medical-theme {
+  --primary-color: rgb(34 197 94);
+  --secondary-color: rgb(52 211 153);
+  --accent-color: rgb(16 185 129);
+  --background-color: rgb(15 23 42);
+  --text-color: rgb(226 232 240);
+}
+
+/* Dark panel and modal styling improvements */
+.panel-content,
+.modal-content,
+.dropdown-content {
+  backdrop-filter: blur(16px) !important;
+  background: rgba(30, 41, 59, 0.95) !important;
+  border: 1px solid rgba(52, 211, 153, 0.2) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Dark typography improvements */
+h1, h2, h3, h4, h5, h6 {
+  color: rgb(226 232 240) !important;
+  font-weight: 600 !important;
+}
+
+/* Dark input and form improvements */
+input, select, textarea {
+  border-radius: 12px !important;
+  border: 1px solid rgb(71 85 105) !important;
+  background: rgba(30, 41, 59, 0.9) !important;
+  color: rgb(226 232 240) !important;
+  transition: all 0.3s ease !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: rgb(34 197 94) !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+  outline: none !important;
+}
+
+/* Dark study browser improvements */
+.study-browser-item {
+  border-radius: 16px !important;
+  border: 1px solid rgb(71 85 105) !important;
+  background: rgba(30, 41, 59, 0.9) !important;
+  color: rgb(226 232 240) !important;
+  transition: all 0.3s ease !important;
+}
+
+.study-browser-item:hover {
+  border-color: rgb(34 197 94) !important;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Dark thumbnail improvements */
+.thumbnail {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  border: 2px solid rgb(71 85 105) !important;
+  transition: all 0.3s ease !important;
+}
+
+.thumbnail:hover {
+  border-color: rgb(34 197 94) !important;
+  transform: scale(1.02) !important;
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.2) !important;
+}
+
+/* Dark viewport improvements */
+.viewport-element {
+  border-radius: 12px !important;
+  border: 2px solid rgb(71 85 105) !important;
+}
+
+.viewport-element.active {
+  border-color: rgb(34 197 94) !important;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15) !important;
+}
+
+/* Fix dropdown menu z-index and positioning */
+[data-testid="user-dropdown"],
+.user-dropdown-menu {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+/* Ensure dropdown buttons don't inherit unwanted styles */
+.user-dropdown-menu button {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  min-width: auto !important;
+  min-height: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  border-radius: 0 !important;
+}
+
+.user-dropdown-menu button:hover {
+  background: rgba(51, 65, 85, 0.4) !important;
+  transform: none !important;
+  scale: 1 !important;
+  border: none !important;
+}
+
+/* Prevent dropdown content from being affected by toolbar styles */
+.user-dropdown-menu * {
+  pointer-events: auto !important;
+}
+
+/* Override any conflicting OHIF modal/panel styles */
+.user-dropdown-menu {
+  position: absolute !important;
+  top: 100% !important;
+  right: 0 !important;
+  margin-top: 12px !important;
+  z-index: 99999 !important;
+} 

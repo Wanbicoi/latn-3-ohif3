@@ -276,6 +276,76 @@ const commandsModule = ({
       console.log(dataSource);
       await dataSource.store.dicom(naturalizedReport);
 
+      // Save to database with new public_v2 schema
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const taskId = urlParams.get('taskId'); // This is task_assignment_id
+        const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
+        
+        // Get current user
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const authorId = userData?.user?.id;
+        
+        if (taskId && authorId && naturalizedReport.SeriesInstanceUID) {
+          // Save to _annotation_comments table with new schema
+          const { error: saveError } = await supabaseClient
+            .from('_annotation_comments')
+            .insert({
+              task_assignment_id: taskId,
+              author_id: authorId,
+              comment: '', // Empty comment for initial save
+              series_instance_uid: naturalizedReport.SeriesInstanceUID,
+              data: {
+                segmentation_id: segmentationId,
+                series_description: SeriesDescription,
+                segmentation_saved_at: new Date().toISOString(),
+                study_instance_uids: studyInstanceUIDs
+              }
+            });
+
+          if (saveError) {
+            console.error('❌ Failed to save annotation comment:', saveError);
+            // Don't throw error - DICOM save was successful, this is just metadata
+            uiNotificationService.show({
+              title: 'Segmentation Saved',
+              message: 'Segmentation saved successfully, but failed to save metadata to database',
+              type: 'warning',
+              duration: 3000,
+            });
+          } else {
+            console.log('✅ Annotation comment saved successfully');
+            uiNotificationService.show({
+              title: 'Segmentation Saved',
+              message: 'Segmentation and metadata saved successfully',
+              type: 'success',
+              duration: 1500,
+            });
+          }
+        } else {
+          console.warn('⚠️ Missing required parameters for database save:', {
+            taskId: !!taskId,
+            authorId: !!authorId,
+            seriesInstanceUID: !!naturalizedReport.SeriesInstanceUID
+          });
+          
+          uiNotificationService.show({
+            title: 'Segmentation Saved',
+            message: 'Segmentation saved successfully (metadata save skipped)',
+            type: 'success',
+            duration: 1500,
+          });
+        }
+      } catch (dbError) {
+        console.error('❌ Database save failed:', dbError);
+        // Don't throw - DICOM save was successful
+        uiNotificationService.show({
+          title: 'Segmentation Saved',
+          message: 'Segmentation saved successfully, but failed to save metadata',
+          type: 'warning',
+          duration: 3000,
+        });
+      }
+
       // The "Mode" route listens for DicomMetadataStore changes
       // When a new instance is added, it listens and
       // automatically calls makeDisplaySets
@@ -284,12 +354,6 @@ const commandsModule = ({
       naturalizedReport.wadoRoot = dataSource.getConfig().wadoRoot;
 
       DicomMetadataStore.addInstances([naturalizedReport], true);
-      uiNotificationService.show({
-        title: 'Segmentation',
-        message: 'Save segmentation successfully',
-        type: 'success',
-        duration: 1500,
-      });
 
       return naturalizedReport;
     },

@@ -1,0 +1,259 @@
+/* Professional Medical AI Header Styles */
+
+/* Main Header Container */
+.header-container,
+.ohif-header,
+[data-testid="header"] {
+  background: linear-gradient(135deg, #1e293b 0%, #1e40af 50%, #4338ca 100%) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+  position: relative !important;
+}
+
+.header-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  animation: shimmer 3s infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Enhanced Logo Area */
+.ohif-logo,
+.header-logo,
+.whitelabeling-logo {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.ohif-logo::before {
+  content: '🏥';
+  font-size: 24px;
+  display: inline-block;
+  margin-right: 8px;
+  background: linear-gradient(135deg, #60a5fa, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Professional Title Styling */
+.ohif-logo span,
+.header-title,
+.whitelabeling-logo span {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 18px !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  letter-spacing: 0.5px !important;
+}
+
+.ohif-logo span::after {
+  content: ' - Medical AI Platform';
+  font-size: 12px;
+  color: #93c5fd !important;
+  font-weight: 400 !important;
+  display: block;
+  margin-top: -2px;
+}
+
+/* Header Navigation & Buttons */
+.header-nav,
+.ohif-header-nav,
+.toolbar-section {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+/* Professional Button Styling */
+.header-nav button,
+.toolbar-button,
+.ohif-button,
+button[class*="toolbar"],
+button[class*="header"] {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+  backdrop-filter: blur(8px) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.header-nav button:hover,
+.toolbar-button:hover,
+.ohif-button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.header-nav button:active,
+.toolbar-button:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Patient Info Styling */
+.patient-info,
+.header-patient-info {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 12px !important;
+  padding: 8px 16px !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(8px) !important;
+  font-weight: 500 !important;
+}
+
+.patient-info .patient-name {
+  color: #93c5fd !important;
+  font-weight: 600 !important;
+}
+
+/* Dropdown Menus */
+.dropdown-menu,
+.header-dropdown {
+  background: rgba(15, 23, 42, 0.95) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dropdown-menu button,
+.header-dropdown button {
+  color: #ffffff !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.dropdown-menu button:hover,
+.header-dropdown button:hover {
+  background: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* User Account Area */
+.user-info,
+.header-user {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 12px !important;
+  padding: 6px 12px !important;
+  backdrop-filter: blur(8px) !important;
+  transition: all 0.3s ease !important;
+}
+
+.user-info:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+.user-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #60a5fa, #a855f7) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+/* Toolbar Specific Enhancements */
+.toolbar-primary,
+.toolbar-secondary {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 12px !important;
+  padding: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Active Tool State */
+.toolbar-button.active,
+.ohif-button.active,
+button[aria-pressed="true"] {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* Status Indicators */
+.connection-status,
+.loading-indicator {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #10b981 !important;
+  border: 1px solid #10b981 !important;
+  border-radius: 20px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+/* Responsive Improvements */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 8px 12px !important;
+  }
+  
+  .ohif-logo span::after {
+    display: none !important;
+  }
+  
+  .patient-info {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+  
+  .toolbar-button {
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* Animation Utilities */
+.fade-in {
+  animation: fadeIn 0.5s ease-in !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Accessibility Improvements */
+.header-container button:focus,
+.toolbar-button:focus {
+  outline: 2px solid #60a5fa !important;
+  outline-offset: 2px !important;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .header-container {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #3730a3 100%) !important;
+  }
+} 

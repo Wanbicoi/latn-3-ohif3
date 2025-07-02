@@ -16,6 +16,7 @@ export const SegmentationSegments: React.FC<{
     mode,
     onSegmentEdit,
     onSegmentDelete,
+    onSegmentComment,
     data,
   } = useSegmentationTableContext('SegmentationTable.Segments');
 
@@ -60,7 +61,8 @@ export const SegmentationSegments: React.FC<{
             key={segmentIndex}
             number={segmentIndex}
             title={label}
-            details={displayText}
+            description={displayText || ''}
+            details={displayText && typeof displayText === 'string' && displayText.trim() ? { primary: [displayText], secondary: [] } : undefined}
             colorHex={cssColor}
             isSelected={active}
             isVisible={visible}
@@ -74,6 +76,7 @@ export const SegmentationSegments: React.FC<{
             onSelect={() => onSegmentClick(segmentationIdToUse, segmentIndex)}
             onRename={() => onSegmentEdit(segmentationIdToUse, segmentIndex)}
             onDelete={() => onSegmentDelete(segmentationIdToUse, segmentIndex)}
+            onComment={onSegmentComment ? () => onSegmentComment(segmentationIdToUse, segmentIndex) : undefined}
           />
         );
       })}

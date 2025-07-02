@@ -109,6 +109,17 @@ export default function PanelSegmentation({
       commandsManager.run('deleteSegmentation', { segmentationId });
     },
 
+    onSegmentComment: (segmentationId, segmentIndex) => {
+      // Navigate to comment page with segmentationId and segmentIndex
+      const urlParams = new URLSearchParams(window.location.search);
+      const taskId = urlParams.get('taskId');
+      const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
+      
+      // Create comment page URL with required parameters
+      const commentUrl = `/ohif3/comments?segmentationId=${segmentationId}&segmentIndex=${segmentIndex}&taskId=${taskId}&studyInstanceUIDs=${studyInstanceUIDs}`;
+      window.location.href = commentUrl;
+    },
+
     setFillAlpha: ({ type }, value) => {
       commandsManager.run('setFillAlpha', { type, value });
     },
@@ -240,6 +251,7 @@ export default function PanelSegmentation({
         onSegmentationEdit={handlers.onSegmentationEdit}
         onSegmentColorClick={handlers.onSegmentColorClick}
         onSegmentDelete={handlers.onSegmentDelete}
+        onSegmentComment={handlers.onSegmentComment}
         onToggleSegmentVisibility={handlers.onToggleSegmentVisibility}
         onToggleSegmentLock={handlers.onToggleSegmentLock}
         onToggleSegmentationRepresentationVisibility={
@@ -274,12 +286,6 @@ export default function PanelSegmentation({
             <SegmentationTable.Segments />
           </SegmentationTable.Expanded>
         )}
-        
-        {/* Floating Comments Panel - Always visible and accessible */}
-        <SegmentationTable.FloatingComments 
-          activeSegmentId={activeSegmentId || 1} 
-          servicesManager={servicesManager}
-        />
       </SegmentationTable>
     </>
   );

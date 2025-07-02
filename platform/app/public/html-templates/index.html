@@ -16,7 +16,7 @@
     />
     <meta
       name="application-name"
-      content="OHIF Viewer"
+      content="Medical AI Platform"
     />
     <meta
       name="apple-mobile-web-app-capable"
@@ -28,7 +28,7 @@
     />
     <meta
       name="apple-mobile-web-app-title"
-      content="@ohif/app"
+      content="Medical AI Platform"
     />
     <meta
       name="msapplication-TileColor"
@@ -196,7 +196,7 @@
       src="<%= PUBLIC_URL %>init-service-worker.js"
     ></script>
 
-    <title>OHIF Viewer</title>
+    <title>Medical AI Platform - Powered by OHIF</title>
 
     <!-- WEB FONTS -->
     <link
@@ -210,6 +210,27 @@
       rel="preload"
       as="style"
     />
+    
+    <!-- Professional Medical AI Header Styles -->
+    <link
+      rel="stylesheet"
+      href="<%= PUBLIC_URL %>professional-header.css"
+    />
+    
+    <!-- Modern Header Layout Styles -->
+    <link
+      rel="stylesheet"
+      href="<%= PUBLIC_URL %>modern-header.css"
+    />
+    
+    <!-- Professional Comments System Styles -->
+    <link
+      rel="stylesheet"
+      href="<%= PUBLIC_URL %>professional-comments.css"
+    />
+    
+
+    
     <script>
       function browserImportFunction(moduleId) {
         return import(moduleId);

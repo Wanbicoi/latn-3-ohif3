@@ -77,6 +77,8 @@ interface DataRowProps {
   //
   colorHex?: string;
   onColor: () => void;
+  //
+  onComment?: () => void;
 }
 
 const DataRow: React.FC<DataRowProps> = ({
@@ -91,6 +93,7 @@ const DataRow: React.FC<DataRowProps> = ({
   onRename,
   onDelete,
   onColor,
+  onComment,
   isSelected = false,
   isVisible = true,
   disableEditing = false,
@@ -112,6 +115,9 @@ const DataRow: React.FC<DataRowProps> = ({
         break;
       case 'Color':
         onColor();
+        break;
+      case 'Comment':
+        onComment && onComment();
         break;
     }
   };
@@ -153,9 +159,10 @@ const DataRow: React.FC<DataRowProps> = ({
         <TooltipTrigger asChild>
           <div className="cursor-help">
             <div className="flex flex-col space-y-1">
-              {visibleLines.map((line, lineIndex) =>
-                renderDetailText(line, line.startsWith('  ') ? 1 : 0)
-              )}
+              {visibleLines.map((line, lineIndex) => {
+                const lineStr = String(line || '');
+                return renderDetailText(lineStr, lineStr.startsWith('  ') ? 1 : 0);
+              })}
             </div>
             {hiddenLines.length > 0 && (
               <div className="text-muted-foreground mt-1 flex items-center text-sm">
@@ -171,9 +178,10 @@ const DataRow: React.FC<DataRowProps> = ({
           className="max-w-md"
         >
           <div className="text-secondary-foreground flex flex-col space-y-1 text-sm leading-normal">
-            {details.map((line, lineIndex) =>
-              renderDetailText(line, line.startsWith('  ') ? 1 : 0)
-            )}
+            {details.map((line, lineIndex) => {
+              const lineStr = String(line || '');
+              return renderDetailText(lineStr, lineStr.startsWith('  ') ? 1 : 0);
+            })}
           </div>
         </TooltipContent>
       </Tooltip>
@@ -279,6 +287,13 @@ const DataRow: React.FC<DataRowProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {/* Comment option - always available */}
+              {onComment && (
+                <DropdownMenuItem onClick={e => handleAction('Comment', e)}>
+                  <Icons.Info className="text-foreground" />
+                  <span className="pl-2">Comment</span>
+                </DropdownMenuItem>
+              )}
               {!disableEditing && (
                 <>
                   <DropdownMenuItem onClick={e => handleAction('Rename', e)}>

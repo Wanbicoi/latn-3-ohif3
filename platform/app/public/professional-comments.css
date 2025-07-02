@@ -1,0 +1,498 @@
+/* Professional Medical Comments System CSS */
+
+/* Global styles for medical interface */
+.medical-interface {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 50%, #e8eaf6 100%);
+  min-height: 100vh;
+}
+
+/* Custom scrollbar for better UX */
+.medical-interface ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.medical-interface ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.medical-interface ::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #64b5f6, #42a5f5);
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+}
+
+.medical-interface ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #42a5f5, #1e88e5);
+}
+
+/* Header enhancements */
+.medical-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+  box-shadow: 0 4px 30px rgba(59, 130, 246, 0.1);
+}
+
+.live-indicator {
+  position: relative;
+  overflow: hidden;
+}
+
+.live-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Avatar enhancements */
+.avatar-ring {
+  position: relative;
+}
+
+.avatar-ring::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, #3b82f6, #8b5cf6, #06b6d4);
+  border-radius: 50%;
+  z-index: -1;
+  animation: rotate 3s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Card hover effects */
+.medical-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.medical-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.medical-card:hover::before {
+  left: 100%;
+}
+
+.medical-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15);
+}
+
+/* Comment bubble styling */
+.comment-bubble {
+  position: relative;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.comment-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.comment-bubble::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), transparent);
+}
+
+/* Priority badges */
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.priority-critical {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  color: #dc2626;
+  border-color: #fca5a5;
+  box-shadow: 0 0 20px rgba(220, 38, 38, 0.2);
+}
+
+.priority-high {
+  background: linear-gradient(135deg, #fff7ed, #fed7aa);
+  color: #ea580c;
+  border-color: #fdba74;
+  box-shadow: 0 0 20px rgba(234, 88, 12, 0.2);
+}
+
+.priority-medium {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  color: #2563eb;
+  border-color: #93c5fd;
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.2);
+}
+
+.priority-low {
+  background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+  color: #4b5563;
+  border-color: #d1d5db;
+}
+
+/* Status badges */
+.status-resolved {
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  animation: success-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes success-glow {
+  from { box-shadow: 0 0 10px rgba(22, 163, 74, 0.3); }
+  to { box-shadow: 0 0 20px rgba(22, 163, 74, 0.5); }
+}
+
+.status-published {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  color: #2563eb;
+  border: 1px solid #93c5fd;
+}
+
+/* Form enhancements */
+.medical-form {
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 20px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.medical-form::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+  animation: gradient-shift 3s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+.medical-textarea {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  resize: none;
+}
+
+.medical-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 0 20px rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Button enhancements */
+.medical-button {
+  position: relative;
+  overflow: hidden;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.medical-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.medical-button:hover::before {
+  left: 100%;
+}
+
+.medical-button:active {
+  transform: translateY(1px);
+}
+
+.medical-button-primary {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.medical-button-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 0 12px 35px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Tab navigation */
+.medical-tabs {
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+}
+
+.medical-tab {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.medical-tab.active {
+  background: white;
+  color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.medical-tab:not(.active):hover {
+  background: rgba(59, 130, 246, 0.05);
+  color: #1f2937;
+}
+
+/* Review action cards */
+.review-action-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.review-action-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.review-action-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.review-approve {
+  border-color: #22c55e;
+  color: #16a34a;
+}
+
+.review-approve:hover {
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  box-shadow: 0 20px 40px rgba(34, 197, 94, 0.2);
+}
+
+.review-revision {
+  border-color: #eab308;
+  color: #ca8a04;
+}
+
+.review-revision:hover {
+  background: linear-gradient(135deg, #fefce8, #fef3c7);
+  box-shadow: 0 20px 40px rgba(234, 179, 8, 0.2);
+}
+
+.review-clinical {
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+.review-clinical:hover {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
+}
+
+/* Loading animations */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Statistics cards */
+.stat-card {
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .medical-interface {
+    padding: 16px;
+  }
+  
+  .comment-bubble {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  
+  .medical-form {
+    padding: 16px;
+  }
+  
+  .review-action-card {
+    padding: 16px;
+  }
+  
+  .stat-card {
+    padding: 16px;
+  }
+  
+  .stat-number {
+    font-size: 24px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus styles for keyboard navigation */
+.medical-button:focus,
+.medical-textarea:focus,
+.medical-tab:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .medical-card,
+  .comment-bubble,
+  .medical-form {
+    border-width: 2px;
+    border-color: #000;
+  }
+  
+  .priority-badge,
+  .status-resolved,
+  .status-published {
+    border-width: 2px;
+  }
+}
+
+/* Dark mode support (for future implementation) */
+@media (prefers-color-scheme: dark) {
+  .medical-interface {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    color: #f8fafc;
+  }
+  
+  .medical-header {
+    background: rgba(15, 23, 42, 0.95);
+    border-bottom-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  .comment-bubble,
+  .medical-form {
+    background: linear-gradient(145deg, #1e293b, #334155);
+    border-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  .medical-textarea {
+    background: rgba(30, 41, 59, 0.8);
+    color: #f8fafc;
+  }
+} 
