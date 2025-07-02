@@ -18,20 +18,21 @@ window.config = {
 
     {
       id: '@ohif/cornerstoneOverlay',
-      // Append recursively, rather than replacing
-      merge: 'Append',
+      // Replace overlay configuration to fix positioning
+      merge: 'Replace',
+      
+      // Xóa hết thông tin ở topLeft để tránh trùng lặp
+      topLeftItems: {
+        id: 'cornerstoneOverlayTopLeft',
+        items: [],
+      },
+
       topRightItems: {
         id: 'cornerstoneOverlayTopRight',
         items: [
           {
             id: 'PatientNameOverlay',
-            // Note below that here we are using the customization prototype of
-            // `ohif.overlayItem` which was registered to the customization module in
-            // `ohif/extension-default` extension.
             customizationType: 'ohif.overlayItem',
-            // the following props are passed to the `ohif.overlayItem` prototype
-            // which is used to render the overlay item based on the label, color,
-            // conditions, etc.
             attribute: 'PatientName',
             label: 'PN:',
             title: 'Patient Name',
@@ -44,21 +45,53 @@ window.config = {
         ],
       },
 
-      topLeftItems: {
-        items: {
-          // Note the -10000 means -10000 + length of existing list, which is
-          // much before the start of hte list, so put the new value at the start.
-          '-10000': {
-            id: 'Species',
+      // Di chuyển tất cả thông tin xuống bottomLeft
+      bottomLeftItems: {
+        id: 'cornerstoneOverlayBottomLeft',
+        items: [
+          {
+            id: 'StudyDate',
             customizationType: 'ohif.overlayItem',
-            label: 'Species:',
-            color: 'red',
-            background: 'green',
-            condition: ({ instance }) => instance?.PatientSpeciesDescription,
-            contentF: ({ instance }) =>
-              instance.PatientSpeciesDescription + '/' + instance.PatientBreedDescription,
+            label: '',
+            title: 'Study date',
+            condition: ({ referenceInstance }) => referenceInstance?.StudyDate,
+            contentF: ({ referenceInstance, formatters: { formatDate } }) =>
+              formatDate(referenceInstance.StudyDate),
           },
-        },
+          {
+            id: 'SeriesDescription', 
+            customizationType: 'ohif.overlayItem',
+            label: '',
+            title: 'Series description',
+            condition: ({ referenceInstance }) => {
+              return referenceInstance && referenceInstance.SeriesDescription;
+            },
+            contentF: ({ referenceInstance }) => referenceInstance.SeriesDescription,
+          },
+          {
+            id: 'WindowLevel',
+            customizationType: 'ohif.overlayItem.windowLevel',
+          },
+          {
+            id: 'ZoomLevel',
+            customizationType: 'ohif.overlayItem.zoomLevel',
+            condition: props => {
+              const activeToolName = props.toolGroupService.getActiveToolForViewport(props.viewportId);
+              return activeToolName === 'Zoom';
+            },
+          },
+        ],
+      },
+
+      // Di chuyển InstanceNumber xuống bottomRight (hoặc có thể để bottomLeft nếu muốn)
+      bottomRightItems: {
+        id: 'cornerstoneOverlayBottomRight',
+        items: [
+          {
+            id: 'InstanceNumber',
+            customizationType: 'ohif.overlayItem.instanceNumber',
+          },
+        ],
       },
     },
   ],

@@ -2,6 +2,78 @@
 window.config = {
   routerBasename: '/ohif3',
   // whiteLabeling: {},
+  
+  // Fix overlay positioning - Di chuyển thông tin xuống bottom-left và tránh duplicate
+  customizationService: [
+    {
+      id: '@ohif/cornerstoneOverlay',
+      merge: 'Replace',
+      
+      // Xóa hết thông tin ở topLeft để tránh trùng lặp
+      topLeftItems: {
+        id: 'cornerstoneOverlayTopLeft',
+        items: [],
+      },
+
+      topRightItems: {
+        id: 'cornerstoneOverlayTopRight', 
+        items: [],
+      },
+
+      // Di chuyển tất cả thông tin xuống bottomLeft (góc trái dưới)
+      bottomLeftItems: {
+        id: 'cornerstoneOverlayBottomLeft',
+        items: [
+          {
+            id: 'StudyDate',
+            customizationType: 'ohif.overlayItem',
+            label: '',
+            title: 'Study date',
+            condition: ({ referenceInstance }) => referenceInstance?.StudyDate,
+            contentF: ({ referenceInstance, formatters: { formatDate } }) =>
+              formatDate(referenceInstance.StudyDate),
+          },
+          {
+            id: 'SeriesDescription', 
+            customizationType: 'ohif.overlayItem',
+            label: '',
+            title: 'Series description',
+            condition: ({ referenceInstance }) => {
+              return referenceInstance && referenceInstance.SeriesDescription;
+            },
+            contentF: ({ referenceInstance }) => referenceInstance.SeriesDescription,
+          },
+          {
+            id: 'WindowLevel',
+            customizationType: 'ohif.overlayItem.windowLevel',
+          },
+          {
+            id: 'InstanceNumber',
+            customizationType: 'ohif.overlayItem',
+            label: 'Slice:',
+            title: 'Instance/Slice Number',
+            condition: ({ instanceNumber, imageSliceData }) => 
+              instanceNumber !== undefined || imageSliceData,
+            contentF: ({ instanceNumber, imageSliceData }) => {
+              const { imageIndex, numberOfSlices } = imageSliceData;
+              if (instanceNumber !== undefined && instanceNumber !== null) {
+                return `${instanceNumber} (${imageIndex + 1}/${numberOfSlices})`;
+              } else {
+                return `${imageIndex + 1}/${numberOfSlices}`;
+              }
+            },
+          },
+        ],
+      },
+
+      // Xóa InstanceNumber khỏi bottomRight để tránh duplicate
+      bottomRightItems: {
+        id: 'cornerstoneOverlayBottomRight',
+        items: [],
+      },
+    },
+  ],
+  
   modesConfiguration: {
     '@ohif/mode-longitudinal': {
       hotkeys: [],

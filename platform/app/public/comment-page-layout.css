@@ -1176,3 +1176,11 @@ body:not(.comment-page-body) .medical-comment-system {
   transform: rotate(180deg);
   transition: transform 0.2s ease;
 }
+
+/* Đảm bảo comment page không ảnh hưởng đến OHIF viewer */
+body.comment-page-body .ohif-viewer,
+body.comment-page-body .cornerstone-viewport,
+body.comment-page-body [data-cy="cornerstone-viewport"] {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}

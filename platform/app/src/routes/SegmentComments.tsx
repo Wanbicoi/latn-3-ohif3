@@ -317,7 +317,7 @@ const SegmentComments: React.FC = () => {
     loadComments();
   }, [taskId, seriesInstanceUID]);
 
-  // Enhanced Comment Submission with Enter Key
+  // 🔥 REFACTORED: Simplified Comment Submission using Workflow Function
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -327,62 +327,99 @@ const SegmentComments: React.FC = () => {
       const actualTaskId = taskId || 'demo-task-id';
       const actualSeriesUID = seriesInstanceUID || 'demo-series-uid';
 
-      let currentUserId = null;
-      let currentUserName = 'Medical User';
-      let currentUserRole = 'Clinical Specialist';
-      let isAuthenticated = false;
-      
+      // 🎯 PRIMARY METHOD: Use workflow function (handles auth, permissions, and business logic)
       try {
-        const { data: userData, error: authError } = await supabaseClient.auth.getUser();
-        
-        if (userData?.user) {
-          currentUserId = userData.user.id;
-          isAuthenticated = true;
-          
-          try {
-            const { data: userProfile } = await supabaseClient
-              .from('_users')
-              .select('full_name')
-              .eq('id', currentUserId)
-              .single();
-            currentUserName = userProfile?.full_name || userData.user.email || 'Medical User';
-          } catch (e) {
-            currentUserName = userData.user.email || 'Medical User';
+        const { error: workflowError } = await supabaseClient.rpc('workflow_annotate_comment', {
+          task_assignment_id: actualTaskId,
+          comment: newComment.trim(),
+          series_instance_uid: actualSeriesUID,
+          data: { 
+            priority: commentPriority, 
+            status: 'published',
+            source: 'ohif_ui',
+            timestamp: new Date().toISOString()
           }
+        });
+
+        if (!workflowError) {
+          // ✅ SUCCESS: Function handled everything (auth, insert, workflow progression)
+          console.log('✅ Comment submitted via workflow function');
           
-          currentUserRole = await getUserRole(currentUserId, actualTaskId);
+          // Reload comments to show the new one
+          await loadComments();
+          
+          // Reset form
+          setNewComment('');
+          setCommentPriority('medium');
+          
+          // Show success message
+          alert('✅ Comment submitted successfully! Workflow may have progressed.');
+          setIsLoading(false);
+          return;
+        } else {
+          console.warn('⚠️ Workflow function failed:', workflowError);
+          throw new Error(workflowError.message || 'Workflow function failed');
         }
-      } catch (authError) {
-        console.warn('⚠️ Authentication failed:', authError);
+      } catch (workflowErr) {
+        console.warn('⚠️ Workflow function error, trying fallback:', workflowErr);
       }
 
-      if (!isAuthenticated || !currentUserId) {
+      // 🔄 FALLBACK METHOD: Direct insert (only if workflow function fails)
+      console.log('🔄 Using fallback: Direct database insert');
+      
+      // Check authentication for fallback
+      const { data: userData, error: authError } = await supabaseClient.auth.getUser();
+      
+      if (authError || !userData?.user) {
+        // 💾 OFFLINE FALLBACK: Local storage
         const localComment: Comment = {
           id: `local-${Date.now()}`,
           author_id: 'local-user',
-          author_name: currentUserName,
-          author_role: currentUserRole,
+          author_name: 'Offline User',
+          author_role: 'Clinical Specialist',
           comment: newComment.trim(),
           created_at: new Date().toISOString(),
-          data: { priority: commentPriority, status: 'published' as const },
-          status: 'published' as const,
+          data: { priority: commentPriority, status: 'draft' },
+          status: 'draft' as const,
           priority: commentPriority
         };
         
         setComments([...comments, localComment]);
         setNewComment('');
         setCommentPriority('medium');
-        alert('Comment saved locally. Please login for database sync.');
+        alert('💾 Comment saved locally. Please login to sync to database.');
         setIsLoading(false);
         return;
       }
 
+      // Get user info for fallback
+      let currentUserName = userData.user.email || 'Medical User';
+      let currentUserRole = 'Clinical Specialist';
+      
+      try {
+        const { data: userProfile } = await supabaseClient
+          .from('_users')
+          .select('full_name')
+          .eq('id', userData.user.id)
+          .single();
+        currentUserName = userProfile?.full_name || currentUserName;
+        currentUserRole = await getUserRole(userData.user.id, actualTaskId);
+      } catch (e) {
+        console.warn('Could not fetch user profile, using defaults');
+      }
+
+      // Direct insert as fallback
       const commentData = {
         task_assignment_id: actualTaskId,
-        author_id: currentUserId,
+        author_id: userData.user.id,
         comment: newComment.trim(),
         series_instance_uid: actualSeriesUID,
-        data: { priority: commentPriority, status: 'published' as const }
+        data: { 
+          priority: commentPriority, 
+          status: 'published',
+          source: 'ohif_ui_fallback',
+          fallback_reason: 'workflow_function_unavailable'
+        }
       };
 
       const { data: savedComment, error } = await supabaseClient
@@ -392,42 +429,54 @@ const SegmentComments: React.FC = () => {
         .single();
 
       if (error) {
-        console.error('❌ Database error:', error);
-        const localComment: Comment = {
-          id: `local-${Date.now()}`,
-          author_id: currentUserId,
-          author_name: currentUserName,
-          author_role: currentUserRole,
-          comment: newComment.trim(),
-          created_at: new Date().toISOString(),
-          data: commentData.data,
-          status: 'published' as const,
-          priority: commentPriority
-        };
-        
-        setComments([...comments, localComment]);
-        alert('Comment saved locally. Database connection issue.');
-      } else {
-        const newCommentObj: Comment = {
-          id: savedComment.id,
-          author_id: savedComment.author_id,
-          author_name: currentUserName,
-          author_role: currentUserRole,
-          comment: savedComment.comment,
-          created_at: savedComment.created_at,
-          data: savedComment.data || {},
-          status: 'published' as const,
-          priority: commentPriority
-        };
-        setComments([...comments, newCommentObj]);
+        console.error('❌ Fallback insert failed:', error);
+        throw new Error(`Database insert failed: ${error.message}`);
       }
 
+      // Add to UI
+      const newCommentObj: Comment = {
+        id: savedComment.id,
+        author_id: savedComment.author_id,
+        author_name: currentUserName,
+        author_role: currentUserRole,
+        comment: savedComment.comment,
+        created_at: savedComment.created_at,
+        data: savedComment.data || {},
+        status: 'published' as const,
+        priority: commentPriority
+      };
+      setComments([...comments, newCommentObj]);
+
+      // Reset form
       setNewComment('');
       setCommentPriority('medium');
       
+      alert('⚠️ Comment saved via fallback method (workflow progression skipped)');
+      
     } catch (error) {
-      console.error('❌ Failed to save comment:', error);
-      alert(`Comment saved locally. Error: ${error.message || 'Unknown error'}`);
+      console.error('❌ All comment submission methods failed:', error);
+      
+      // 💾 LAST RESORT: Local storage
+      const emergencyComment: Comment = {
+        id: `emergency-${Date.now()}`,
+        author_id: 'emergency-user',
+        author_name: 'Emergency User',
+        author_role: 'Clinical Specialist',
+        comment: newComment.trim(),
+        created_at: new Date().toISOString(),
+        data: { 
+          priority: commentPriority, 
+          status: 'draft'
+        },
+        status: 'draft' as const,
+        priority: commentPriority
+      };
+      
+      setComments([...comments, emergencyComment]);
+      setNewComment('');
+      setCommentPriority('medium');
+      
+      alert(`💾 Comment saved locally due to error: ${error.message || 'Unknown error'}`);
     }
 
     setIsLoading(false);
@@ -1288,7 +1337,7 @@ const SegmentComments: React.FC = () => {
                               value={newComment}
                               onChange={(e) => setNewComment(e.target.value)}
                               onKeyDown={handleKeyDown}
-                              placeholder={`Add your clinical assessment for ${getSegmentName()}... (Press Enter to send, Shift+Enter for new line)`}
+                              placeholder={`Add your clinical assessment for ... (Press Enter to send, Shift+Enter for new line)`}
                               className="main-comment-textarea w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm resize-vertical min-h-[100px]"
                               rows={4}
                               disabled={isLoading}

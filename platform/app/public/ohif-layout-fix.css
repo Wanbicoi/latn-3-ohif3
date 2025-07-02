@@ -178,6 +178,13 @@ body.comment-page-body {
   padding-top: 0 !important;
 }
 
+/* Đảm bảo viewport overlays không bị ảnh hưởng bởi body padding */
+body:not(.comment-page-body) .ViewportOverlay,
+body:not(.comment-page-body) .viewport-overlay {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
 /* Debug: temporary visual aid (remove in production) */
 /* 
 .ohif-header {

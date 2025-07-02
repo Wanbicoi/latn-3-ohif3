@@ -1,0 +1,44 @@
+/* OHIF Viewport Overlay Position Fix */
+/* Đảm bảo overlay hiển thị ở đúng vị trí bottom-left và không đè lên ảnh */
+
+/* Đảm bảo overlay hiển thị đúng và không bị conflicts */
+.ViewportOverlay {
+  pointer-events: none !important;
+}
+
+.ViewportOverlay .overlay-element {
+  pointer-events: none !important;
+}
+
+/* Force bottom positioning cho overlay-bottom class */
+.ViewportOverlay .overlay-bottom {
+  bottom: 10px !important;
+  top: auto !important;
+}
+
+/* Đảm bảo left positioning cho bottom-left overlay */
+.ViewportOverlay .left-viewport {
+  left: 10px !important;
+  text-align: left !important;
+}
+
+/* Hide top overlays để tránh duplicate */
+.ViewportOverlay .overlay-top {
+  display: none !important;
+}
+
+/* Đảm bảo text hiển thị rõ ràng và không bị che */
+.ViewportOverlay .overlay-item {
+  margin: 2px 0 !important;
+  padding: 1px 2px !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-radius: 2px !important;
+}
+
+.ViewportOverlay .overlay-item span {
+  display: inline-block !important;
+  color: #9ccef9 !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+  font-weight: 400 !important;
+  margin-right: 4px !important;
+} 
