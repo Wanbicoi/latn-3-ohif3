@@ -83,6 +83,8 @@ const SegmentComments: React.FC = () => {
   const [showReplies, setShowReplies] = useState<{[key: string]: boolean}>({});
   const [showEmojiPicker, setShowEmojiPicker] = useState<{[key: string]: boolean}>({});
   const [showDropdown, setShowDropdown] = useState<{[key: string]: boolean}>({});
+  const [userNames, setUserNames] = useState<{[userId: string]: string}>({});
+  const [resolvedTooltips, setResolvedTooltips] = useState<{[commentId: string]: string}>({});
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   
   // Enhanced Delete System
@@ -211,6 +213,49 @@ const SegmentComments: React.FC = () => {
     }
   };
 
+  // Get user name from user ID with caching
+  const getUserName = async (userId: string): Promise<string> => {
+    if (!userId) return 'Unknown User';
+    
+    // Check cache first
+    if (userNames[userId]) {
+      return userNames[userId];
+    }
+
+    try {
+      const { data, error } = await supabaseClient
+        .from('_users')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+
+      if (!error && data?.full_name) {
+        // Cache the result
+        setUserNames(prev => ({ ...prev, [userId]: data.full_name }));
+        return data.full_name;
+      }
+    } catch (error) {
+      console.warn(`Could not fetch user name for ${userId}:`, error);
+    }
+
+    return 'Unknown User';
+  };
+
+  // Generate tooltip for resolved comments
+  const getResolvedTooltip = async (comment: Comment): Promise<string> => {
+    if (comment.data?.status !== 'resolved') return '';
+    
+    const resolvedBy = comment.data?.resolved_by;
+    const resolvedAt = comment.data?.resolved_at;
+    
+    if (!resolvedBy || !resolvedAt) return '';
+    
+    const resolverName = await getUserName(resolvedBy);
+    const resolvedDate = new Date(resolvedAt);
+    
+    return `Resolved by ${resolverName} on ${resolvedDate.toLocaleDateString()} at ${resolvedDate.toLocaleTimeString()}`;
+  };
+
   // Enhanced Data Loading
   useEffect(() => {
     const loadData = async () => {
@@ -281,7 +326,7 @@ const SegmentComments: React.FC = () => {
         `)
         .eq('task_assignment_id', actualTaskId)
         .eq('series_instance_uid', actualSeriesUID)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Database error loading comments:', error);
@@ -351,6 +396,28 @@ const SegmentComments: React.FC = () => {
   useEffect(() => {
     loadComments();
   }, [taskId, seriesInstanceUID]);
+
+  // Load resolved tooltips when comments change
+  useEffect(() => {
+    const loadTooltips = async () => {
+      const tooltips: {[commentId: string]: string} = {};
+      
+      for (const comment of comments) {
+        if (comment.data?.status === 'resolved') {
+          const tooltip = await getResolvedTooltip(comment);
+          if (tooltip) {
+            tooltips[comment.id] = tooltip;
+          }
+        }
+      }
+      
+      setResolvedTooltips(tooltips);
+    };
+
+    if (comments.length > 0) {
+      loadTooltips();
+    }
+  }, [comments]);
 
   // 🔥 REFACTORED: Simplified Comment Submission using Workflow Function
   const handleSubmit = async (e: React.FormEvent) => {
@@ -599,7 +666,7 @@ const SegmentComments: React.FC = () => {
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'high': return 'bg-yellow-200 text-yellow-900 border-yellow-400';
       case 'medium': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -1480,6 +1547,7 @@ const SegmentComments: React.FC = () => {
                             <div 
                               key={comment.id} 
                               className={`p-6 ${isResolved ? 'comment-resolved bg-green-50 border-l-4 border-green-400' : ''}`}
+                              title={isResolved ? resolvedTooltips[comment.id] || 'This comment has been resolved' : ''}
                             >
 
                               
@@ -2021,9 +2089,9 @@ const SegmentComments: React.FC = () => {
                       </div>
                       
                       <div className="priority-item">
-                        <div className="text-2xl font-bold text-orange-600 mb-1">{getPriorityStats().highCount}</div>
-                        <div className="text-sm text-orange-700 font-medium">⚠️ High</div>
-                        <div className="text-xs text-orange-600 mt-1">Urgent Review</div>
+                                          <div className="text-2xl font-bold text-yellow-700 mb-1">{getPriorityStats().highCount}</div>
+                  <div className="text-sm text-yellow-800 font-medium">⚠️ High</div>
+                  <div className="text-xs text-yellow-700 mt-1">Urgent Review</div>
                       </div>
                       
                       <div className="priority-item">

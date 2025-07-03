@@ -75,7 +75,7 @@ export const FloatingSegmentationComments: React.FC<{
           `)
           .eq('task_assignment_id', taskAssignmentId)
           .eq('series_instance_uid', seriesInstanceUID)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: false });
 
         if (error) {
           console.error('❌ Error fetching comments:', error);

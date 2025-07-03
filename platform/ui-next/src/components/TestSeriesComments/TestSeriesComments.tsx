@@ -36,7 +36,7 @@ export const TestSeriesComments: React.FC<TestSeriesCommentsProps> = ({
         `)
         .eq('task_assignment_id', testTaskAssignmentId)
         .eq('series_instance_uid', testSeriesInstanceUID)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error:', error);
