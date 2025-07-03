@@ -5,7 +5,7 @@ import segmentationButtons from './segmentationButtons';
 import initToolGroups from './initToolGroups';
 
 const monailabel = {
-  monaiLabel: '@ohif/extension-monai-label.panelModule.monailabel',
+  tabbedSegmentation: '@ohif/extension-monai-label.panelModule.tabbed-segmentation',
 };
 
 const ohif = {
@@ -137,7 +137,7 @@ function modeFactory({ modeConfiguration }) {
               rightPanelDefaultClosed: false,
               leftPanelDefaultClosed: false,
               leftPanels: ['@ohif/extension-default.panelModule.seriesList'],
-              rightPanels: [monailabel.monaiLabel],
+              rightPanels: [monailabel.tabbedSegmentation],
               viewports: [
                 {
                   namespace: cornerstone.viewport,

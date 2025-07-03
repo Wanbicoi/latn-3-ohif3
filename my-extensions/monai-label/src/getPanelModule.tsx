@@ -1,14 +1,14 @@
 import React from 'react';
-import MonaiLabelPanel from './components/MonaiLabelPanel';
+import TabbedSegmentationPanel from './components/TabbedSegmentationPanel';
 
 function getPanelModule({
   commandsManager,
   extensionManager,
   servicesManager,
 }) {
-  const WrappedMonaiLabelPanel = () => {
+  const WrappedTabbedSegmentationPanel = () => {
     return (
-      <MonaiLabelPanel
+      <TabbedSegmentationPanel
         commandsManager={commandsManager}
         servicesManager={servicesManager}
         extensionManager={extensionManager}
@@ -18,12 +18,12 @@ function getPanelModule({
 
   return [
     {
-      name: 'monailabel',
-      iconName: 'tab-patient-info',
-      iconLabel: 'MONAI',
-      label: 'MONAI Label',
-      secondaryLabel: 'MONAI Label',
-      component: WrappedMonaiLabelPanel,
+      name: 'tabbed-segmentation',
+      iconName: 'tab-segmentation',
+      iconLabel: 'Segmentation',
+      label: 'Segmentation',
+      secondaryLabel: 'Manual & AI Segmentation',
+      component: WrappedTabbedSegmentationPanel,
     },
   ];
 }
