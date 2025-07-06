@@ -1241,4 +1241,219 @@
   -webkit-background-clip: unset !important;
   -webkit-text-fill-color: #000000 !important;
   color: #000000 !important;
+}
+
+.comment-page .bg-gradient-to-r,
+.comment-page .from-emerald-500,
+.comment-page .to-emerald-600 {
+  background: linear-gradient(to right, #10b981, #059669) !important;
+}
+
+/* 🎯 Notification Badge & Status Button Animations */
+
+/* Glowing notification badge animation */
+@keyframes badge-glow {
+  0%, 100% { 
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4), 0 0 0 0 rgba(239, 68, 68, 0.3); 
+  }
+  50% { 
+    box-shadow: 0 6px 24px rgba(239, 68, 68, 0.6), 0 0 0 8px rgba(239, 68, 68, 0.1); 
+  }
+}
+
+/* Badge bounce on hover */
+@keyframes badge-bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-6px); }
+  60% { transform: translateY(-3px); }
+}
+
+/* Notification badge pulse with breathing effect */
+@keyframes notification-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+/* Status button glow effect */
+@keyframes status-glow {
+  0%, 100% { 
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% { 
+    box-shadow: 0 12px 40px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Progress bar animation */
+@keyframes progress-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Tooltip slide up animation */
+@keyframes tooltip-slide-up {
+  0% { 
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  100% { 
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Enhanced notification badge styling */
+.comment-page .notification-badge {
+  animation: notification-pulse 2s ease-in-out infinite, badge-glow 3s ease-in-out infinite;
+  position: relative;
+  z-index: 10;
+}
+
+.comment-page .notification-badge:hover {
+  animation: badge-bounce 0.6s ease-in-out, badge-glow 3s ease-in-out infinite;
+}
+
+/* Status button enhanced styling */
+.comment-page .status-button {
+  animation: status-glow 4s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Progress bar with flowing gradient */
+.comment-page .progress-bar {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b, #d97706, #f59e0b, #fbbf24);
+  background-size: 200% 100%;
+  animation: progress-flow 3s ease-in-out infinite;
+}
+
+/* Tooltip with slide animation */
+.comment-page .status-tooltip {
+  animation: tooltip-slide-up 0.3s ease-out;
+}
+
+/* Additional hover effects for the status area */
+.comment-page .status-group:hover .notification-badge {
+  animation: badge-bounce 0.6s ease-in-out infinite alternate;
+}
+
+/* Shimmer effect for text */
+@keyframes text-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.comment-page .shimmer-text {
+  background: linear-gradient(90deg, #ffffff 25%, rgba(255, 255, 255, 0.8) 50%, #ffffff 75%);
+  background-size: 200px 100%;
+  animation: text-shimmer 2s infinite linear;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Breathing animation for glow background */
+@keyframes background-breathe {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.comment-page .glow-background {
+  animation: background-breathe 4s ease-in-out infinite;
+}
+
+/* Professional medical button states */
+.comment-page .medical-button-pending {
+  position: relative;
+  overflow: hidden;
+}
+
+.comment-page .medical-button-pending::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: button-shine 3s infinite;
+}
+
+@keyframes button-shine {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
+/* Counter badge with number flip animation */
+@keyframes number-flip {
+  0% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+.comment-page .counter-badge {
+  animation: number-flip 0.6s ease-in-out;
+}
+
+/* Medical grade attention grabbing pulse */
+@keyframes medical-attention {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+  }
+  25% { 
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+  }
+  50% { 
+    transform: scale(1.1);
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.6);
+  }
+  75% { 
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+  }
+}
+
+.comment-page .medical-attention {
+  animation: medical-attention 2s ease-in-out infinite;
+}
+
+/* Responsive animations for mobile */
+@media (max-width: 768px) {
+  .comment-page .notification-badge {
+    animation-duration: 3s;
+  }
+  
+  .comment-page .status-button {
+    animation-duration: 5s;
+  }
+  
+  .comment-page .progress-bar {
+    animation-duration: 4s;
+  }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .comment-page .notification-badge,
+  .comment-page .status-button,
+  .comment-page .progress-bar,
+  .comment-page .glow-background,
+  .comment-page .medical-button-pending::before {
+    animation: none;
+  }
 } 

@@ -96,6 +96,9 @@ const SegmentComments: React.FC = () => {
   // 🎨 Toast Notification State
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // Approve Button State
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
   // Refs
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   
@@ -929,6 +932,52 @@ const SegmentComments: React.FC = () => {
     return { criticalCount, highCount, mediumCount, lowCount };
   };
 
+  // 🎯 Approve Button Functions
+  const areAllThreadsResolved = (): boolean => {
+    const threads = getThreadedComments();
+    // Must have at least 1 thread AND all threads must be resolved
+    if (threads.length === 0) return false;
+    return threads.length > 0 && threads.every(thread => thread.data?.status === 'resolved');
+  };
+
+  const handleApproveAll = async () => {
+    if (!areAllThreadsResolved() || isSubmittingApproval) return;
+    
+    setIsSubmittingApproval(true);
+    
+    try {
+      const actualTaskId = taskId || 'demo-task-id';
+      const actualSegmentationId = segmentationId || 'demo-segmentation-id';
+      
+      console.log('🎯 Submitting approval for:', {
+        task_assignment_id: actualTaskId,
+        segmentation_id: actualSegmentationId
+      });
+      
+      // Call the workflow function
+      const { error } = await supabaseClient.rpc('workflow_annotate_submit', {
+        task_assignment_id: actualTaskId,
+        segmentation_id: actualSegmentationId
+      });
+      
+      if (error) {
+        console.error('❌ Approval failed:', error);
+        showError('Approval Failed', error.message || 'Failed to submit approval. Please try again.');
+      } else {
+        console.log('✅ Approval submitted successfully');
+        showSuccess('Approval Submitted', 'All threads have been reviewed and approved successfully!');
+        
+        // Optionally reload comments or update UI state
+        await loadComments();
+      }
+    } catch (error) {
+      console.error('❌ Approval error:', error);
+      showError('Approval Error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmittingApproval(false);
+    }
+  };
+
   const toggleReplies = (commentId: string) => {
     setShowReplies(prev => ({ ...prev, [commentId]: !prev[commentId] }));
   };
@@ -1380,6 +1429,168 @@ const SegmentComments: React.FC = () => {
                   <span className="comment-count-badge">
                     📊 {filteredComments.length} {filteredComments.length === 1 ? 'review' : 'reviews'}
                   </span>
+                  
+                  {/* 🎯 Professional Approve Button */}
+                  {getThreadsStats().totalThreads === 0 ? (
+                    <div className="relative ml-6 px-8 py-4 bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-xl font-bold text-sm shadow-lg border-2 backdrop-blur-sm opacity-60"
+                      style={{
+                        background: 'linear-gradient(135deg, #9ca3af 0%, #6b7280 50%, #4b5563 100%)',
+                        boxShadow: '0 8px 32px rgba(156, 163, 175, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                        textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                        filter: 'drop-shadow(0 4px 8px rgba(156, 163, 175, 0.2))',
+                        borderColor: 'rgba(209, 213, 219, 0.5)',
+                        color: '#ffffff'
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                          </svg>
+                        </div>
+                        <div className="flex flex-col items-start">
+                          <span className="font-bold text-sm tracking-wide" style={{ color: '#ffffff', textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)' }}>
+                            NO THREADS YET
+                          </span>
+                          <span className="text-xs font-medium" style={{ color: '#f3f4f6', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>
+                            Start discussion to enable approval
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : areAllThreadsResolved() ? (
+                    <button
+                      onClick={handleApproveAll}
+                      disabled={isSubmittingApproval}
+                      className="relative ml-6 px-8 py-4 text-white rounded-xl font-bold text-sm transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl border-2 backdrop-blur-sm"
+                      style={{
+                        background: isSubmittingApproval 
+                          ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 50%, #374151 100%)' 
+                          : 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
+                        boxShadow: isSubmittingApproval 
+                          ? '0 8px 32px rgba(107, 114, 128, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)' 
+                          : '0 8px 32px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                        textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                        filter: isSubmittingApproval 
+                          ? 'drop-shadow(0 4px 8px rgba(107, 114, 128, 0.3))' 
+                          : 'drop-shadow(0 4px 8px rgba(16, 185, 129, 0.3))',
+                        borderColor: isSubmittingApproval ? 'rgba(156, 163, 175, 0.5)' : 'rgba(52, 211, 153, 0.6)',
+                        color: '#ffffff'
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                          {isSubmittingApproval ? (
+                            <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-start">
+                          <span className="font-bold text-sm tracking-wide" style={{ color: '#ffffff', textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)' }}>
+                            {isSubmittingApproval ? 'SUBMITTING...' : 'APPROVE ALL'}
+                          </span>
+                          <span className="text-xs font-medium" style={{ color: '#f0fdf4', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>
+                            {isSubmittingApproval ? 'Processing approval' : 'All threads resolved'}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="status-group relative ml-6 group">
+                      {/* Enhanced Review Status Button */}
+                      <div className="status-button medical-button-pending relative px-8 py-4 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl border-2 backdrop-blur-sm transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                        style={{
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 40%, #1d4ed8 70%, #1e40af 100%)',
+                          boxShadow: '0 8px 32px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                          textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                          filter: 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.3))',
+                          borderColor: 'rgba(147, 197, 253, 0.6)',
+                          color: '#ffffff'
+                        }}
+                        title={`${getThreadsStats().openThreads} threads need to be resolved before approval`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
+                            </svg>
+                          </div>
+                          <div className="flex flex-col items-start">
+                            <span className="font-bold text-sm tracking-wide" style={{ color: '#ffffff', textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)' }}>
+                              REVIEW STATUS
+                            </span>
+                            <span className="text-xs font-medium" style={{ color: '#e0f2fe', textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}>
+                              Pending clinical review
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Animated Progress Bar */}
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 rounded-b-xl overflow-hidden">
+                          <div 
+                            className="progress-bar h-full transition-all duration-500 ease-out"
+                            style={{
+                              width: `${(getThreadsStats().resolvedThreads / getThreadsStats().totalThreads) * 100}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Animated Notification Badge */}
+                      <div className="notification-badge absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-red-500 to-pink-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white"
+                        style={{
+                          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                          boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4), 0 0 0 4px rgba(239, 68, 68, 0.1)'
+                        }}
+                      >
+                        <span className="text-white text-xs font-bold counter-badge">
+                          {getThreadsStats().openThreads}
+                        </span>
+                      </div>
+                      
+                      {/* Friendly Status Tooltip */}
+                      <div className="status-tooltip absolute -bottom-20 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20">
+                        <div className="bg-white text-gray-800 px-5 py-4 rounded-2xl shadow-2xl border border-gray-200 backdrop-blur-sm"
+                          style={{
+                            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(59, 130, 246, 0.1)',
+                            backdropFilter: 'blur(12px)',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif'
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full flex items-center justify-center shadow-sm">
+                              <span className="text-white text-xs">📊</span>
+                            </div>
+                            <span className="text-gray-700 font-medium text-base leading-relaxed"
+                              style={{ 
+                                fontWeight: '500', 
+                                letterSpacing: '0.01em',
+                                lineHeight: '1.5'
+                              }}
+                            >
+                              {getThreadsStats().resolvedThreads} of {getThreadsStats().totalThreads} threads completed
+                            </span>
+                          </div>
+                          {/* Friendly Tooltip Arrow */}
+                          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-gray-200 rotate-45"
+                            style={{
+                              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      {/* Subtle Glow Effect */}
+                      <div className="glow-background absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 to-indigo-600/20 blur-xl -z-10"></div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Real-time indicator */}
