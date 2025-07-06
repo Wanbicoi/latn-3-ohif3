@@ -14,6 +14,7 @@ import vtkImageMarchingSquares from '@kitware/vtk.js/Filters/General/ImageMarchi
 import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
 import vtkImageData from '@kitware/vtk.js/Common/DataModel/ImageData';
 import supabaseClient from '../../../my-extensions/dicom-seg/src/utils/supabase';
+import toastService from './utils/toastService';
 
 const { segmentation: segmentationUtils } = utilities;
 
@@ -276,7 +277,7 @@ const commandsModule = ({
       console.log(dataSource);
       await dataSource.store.dicom(naturalizedReport);
 
-      // Save to database with new public_v2 schema
+      // Save to database and call workflow function
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const taskId = urlParams.get('taskId'); // This is task_assignment_id
@@ -287,64 +288,54 @@ const commandsModule = ({
         const authorId = userData?.user?.id;
         
         if (taskId && authorId && naturalizedReport.SeriesInstanceUID) {
-          // Save to _annotation_comments table with new schema
-          const { error: saveError } = await supabaseClient
-            .from('_annotation_comments')
-            .insert({
-              task_assignment_id: taskId,
-              author_id: authorId,
-              comment: '', // Empty comment for initial save
-              series_instance_uid: naturalizedReport.SeriesInstanceUID,
-              data: {
-                segmentation_id: segmentationId,
-                series_description: SeriesDescription,
-                segmentation_saved_at: new Date().toISOString(),
-                study_instance_uids: studyInstanceUIDs
-              }
-            });
+          console.log('🎯 Calling workflow_annotate_submit:', {
+            task_assignment_id: taskId,
+            segmentation_id: naturalizedReport.SeriesInstanceUID
+          });
 
-          if (saveError) {
-            console.error('❌ Failed to save annotation comment:', saveError);
-            // Don't throw error - DICOM save was successful, this is just metadata
-            uiNotificationService.show({
-              title: 'Segmentation Saved',
-              message: 'Segmentation saved successfully, but failed to save metadata to database',
-              type: 'warning',
-              duration: 3000,
-            });
+          // Call workflow function for label assignment (schema public_v2 already configured)
+          const { data: workflowData, error: workflowError } = await supabaseClient.rpc('workflow_annotate_submit', {
+            task_assignment_id: taskId,
+            segmentation_id: naturalizedReport.SeriesInstanceUID
+          });
+
+          if (workflowError) {
+            console.error('❌ Workflow function failed:', workflowError);
+            toastService.warning(
+              'Label Assignment Failed my schema',
+              `Segmentation saved but workflow failed: ${workflowError.message}`,
+              5000
+            );
           } else {
-            console.log('✅ Annotation comment saved successfully');
-            uiNotificationService.show({
-              title: 'Segmentation Saved',
-              message: 'Segmentation and metadata saved successfully',
-              type: 'success',
-              duration: 1500,
-            });
+            console.log('✅ Workflow function completed successfully:', workflowData);
+            toastService.success(
+              'Label Saved Successfully! 🎉',
+              `Label "${SeriesDescription}" assigned and saved successfully`,
+              4000
+            );
           }
         } else {
-          console.warn('⚠️ Missing required parameters for database save:', {
-            taskId: !!taskId,
-            authorId: !!authorId,
-            seriesInstanceUID: !!naturalizedReport.SeriesInstanceUID
-          });
-          
-          uiNotificationService.show({
-            title: 'Segmentation Saved',
-            message: 'Segmentation saved successfully (metadata save skipped)',
-            type: 'success',
-            duration: 1500,
-          });
+                      console.warn('⚠️ Missing required parameters for workflow save:', {
+              taskId: !!taskId,
+              authorId: !!authorId,
+              seriesInstanceUID: !!naturalizedReport.SeriesInstanceUID
+            });
+            
+            toastService.info(
+              'Segmentation Saved',
+              'Segmentation saved to Orthanc (label assignment skipped)',
+              3000
+            );
         }
-      } catch (dbError) {
-        console.error('❌ Database save failed:', dbError);
-        // Don't throw - DICOM save was successful
-        uiNotificationService.show({
-          title: 'Segmentation Saved',
-          message: 'Segmentation saved successfully, but failed to save metadata',
-          type: 'warning',
-          duration: 3000,
-        });
-      }
+              } catch (error) {
+          console.error('❌ Save process failed:', error);
+          // Don't throw - DICOM save was successful
+          toastService.error(
+            'Label Assignment Error',
+            `Segmentation saved but label assignment failed: ${error.message || 'Unknown error'}`,
+            5000
+          );
+        }
 
       // The "Mode" route listens for DicomMetadataStore changes
       // When a new instance is added, it listens and
