@@ -1107,36 +1107,88 @@ const SegmentComments: React.FC = () => {
     setShowReplies(prev => ({ ...prev, [commentId]: !prev[commentId] }));
   };
 
-  // Enhanced Delete System with Professional Dialog
+  // Enhanced Delete System with Cascade Delete Support
   const handleDeleteComment = async (commentId: string) => {
     try {
-      const { error } = await supabaseClient
+      console.log('🗑️ Attempting to delete comment:', commentId);
+      console.log('🔍 Current user:', user);
+
+      // Check user permissions first
+      const commentToDelete = comments.find(c => c.id === commentId);
+      if (!commentToDelete) {
+        console.error('❌ Comment not found in local state');
+        showError('Delete Failed', 'Comment not found');
+        return;
+      }
+
+      if (!canDeleteComment(commentToDelete)) {
+        console.error('❌ User does not have permission to delete this comment');
+        showError('Delete Failed', 'You do not have permission to delete this comment');
+        return;
+      }
+
+      // Check if this is a parent comment (thread)
+      const isParentComment = !commentToDelete.data?.parent_comment_id;
+      const replies = comments.filter(c => c.data?.parent_comment_id === commentId);
+      
+      console.log('🔍 Comment type:', isParentComment ? 'Parent (thread)' : 'Reply');
+      console.log('🔍 Replies to delete:', replies.length);
+
+      if (isParentComment && replies.length > 0) {
+        // Cascade delete: Delete all replies first, then parent
+        console.log('🗑️ Cascade delete: Deleting parent thread and all replies');
+        
+        // Delete all replies first
+        for (const reply of replies) {
+          const { error: replyError } = await supabaseClient
+            .from('_annotation_comments')
+            .delete()
+            .eq('id', reply.id);
+          
+          if (replyError) {
+            console.error('❌ Failed to delete reply:', reply.id, replyError);
+          } else {
+            console.log('✅ Deleted reply:', reply.id);
+          }
+        }
+      }
+
+      // Delete the main comment (parent or single reply)
+      const { data, error } = await supabaseClient
         .from('_annotation_comments')
         .delete()
-        .eq('id', commentId);
+        .eq('id', commentId)
+        .select();
+
+      console.log('🔍 Delete result:', { data, error });
 
       if (!error) {
-        setComments(prev => {
-          const updatedComments = prev.filter(c => c.id !== commentId);
-          
-          if (updatedComments.length === prev.length) {
-            return prev.map(comment => ({
-              ...comment,
-              replies: comment.replies?.filter(reply => reply.id !== commentId) || []
-            }));
-          }
-          
-          return updatedComments;
-        });
+        console.log('✅ Comment deleted successfully from database');
+        
+        // Update UI state
+        if (isParentComment) {
+          // Remove parent and all its replies
+          setComments(prev => prev.filter(c => 
+            c.id !== commentId && c.data?.parent_comment_id !== commentId
+          ));
+          showSuccess('Thread Deleted', `Thread and ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'} removed`);
+        } else {
+          // Remove only the reply
+          setComments(prev => prev.filter(c => c.id !== commentId));
+          showSuccess('Reply Deleted', 'Reply has been removed');
+        }
         
         setDeleteConfirm({show: false, commentId: null});
+        
+        // Reload comments to ensure consistency
+        await loadComments();
       } else {
         console.error('❌ Failed to delete comment:', error);
-        alert('Failed to delete comment. Please try again.');
+        showError('Delete Failed', error.message || 'Failed to delete comment. Please check your permissions.');
       }
     } catch (error) {
       console.error('❌ Error deleting comment:', error);
-      alert('Error deleting comment. Please try again.');
+      showError('Delete Error', `An unexpected error occurred: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -1679,36 +1731,29 @@ const SegmentComments: React.FC = () => {
                         </span>
                       </div>
                       
-                      {/* Friendly Status Tooltip */}
-                      <div className="status-tooltip absolute -bottom-20 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20">
-                        <div className="bg-white text-gray-800 px-5 py-4 rounded-2xl shadow-2xl border border-gray-200 backdrop-blur-sm"
+                      {/* Simple Status Tooltip */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
+                        <div className="relative bg-white text-gray-800 px-4 py-2 rounded-lg shadow-lg border border-gray-200"
                           style={{
-                            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(59, 130, 246, 0.1)',
-                            backdropFilter: 'blur(12px)',
-                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif'
+                            minWidth: '160px',
+                            background: '#ffffff',
+                            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.12)',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
                           }}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-4 h-4 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full flex items-center justify-center shadow-sm">
-                              <span className="text-white text-xs">📊</span>
+                          <div className="text-center">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                              <span className="text-orange-500">⏳</span>
+                              <span className="text-gray-700 font-medium text-sm">
+                                {getThreadsStats().openThreads} thread{getThreadsStats().openThreads !== 1 ? 's' : ''} pending
+                              </span>
                             </div>
-                            <span className="text-gray-700 font-medium text-base leading-relaxed"
-                              style={{ 
-                                fontWeight: '500', 
-                                letterSpacing: '0.01em',
-                                lineHeight: '1.5'
-                              }}
-                            >
-                              {getThreadsStats().resolvedThreads} of {getThreadsStats().totalThreads} threads completed
-                            </span>
+                            <div className="text-xs text-gray-500">
+                              Resolve all to approve
+                            </div>
                           </div>
-                          {/* Friendly Tooltip Arrow */}
-                          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-gray-200 rotate-45"
-                            style={{
-                              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
-                            }}
-                          ></div>
+                          {/* Clean Arrow */}
+                          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45"></div>
                         </div>
                       </div>
                       
@@ -2530,50 +2575,81 @@ const SegmentComments: React.FC = () => {
       </div>
       
       {/* Professional Delete Confirmation Dialog */}
-      {deleteConfirm.show && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform animate-slide-up">
-            <div className="p-6">
-              {/* Icon and Header */}
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center animate-pulse">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
+      {deleteConfirm.show && (() => {
+        const commentToDelete = comments.find(c => c.id === deleteConfirm.commentId);
+        const isParentComment = commentToDelete && !commentToDelete.data?.parent_comment_id;
+        const replies = comments.filter(c => c.data?.parent_comment_id === deleteConfirm.commentId);
+        const replyCount = replies.length;
+        
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform animate-slide-up">
+              <div className="p-6">
+                {/* Icon and Header */}
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center animate-pulse">
+                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Delete {isParentComment ? 'Thread' : 'Reply'}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">Delete Comment</h3>
-                  <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+                
+                {/* Content */}
+                <div className="mb-6">
+                  {isParentComment && replyCount > 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-gray-700 leading-relaxed">
+                        You are about to delete a <strong>thread</strong> that contains <strong>{replyCount}</strong> {replyCount === 1 ? 'reply' : 'replies'}.
+                      </p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium text-yellow-800">
+                              All replies will be deleted as well
+                            </p>
+                            <p className="text-xs text-yellow-700 mt-1">
+                              This will remove the entire conversation thread from the medical review system.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-700 leading-relaxed">
+                      Are you sure you want to delete this {isParentComment ? 'thread' : 'reply'}? This will permanently remove the {isParentComment ? 'comment' : 'reply'} from the medical review system.
+                    </p>
+                  )}
                 </div>
-              </div>
-              
-              {/* Content */}
-              <div className="mb-6">
-                <p className="text-gray-700 leading-relaxed">
-                  Are you sure you want to delete this medical comment? This will permanently remove the comment 
-                  and all associated data from the review system.
-                </p>
-              </div>
-              
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  onClick={() => setDeleteConfirm({show: false, commentId: null})}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => deleteConfirm.commentId && handleDeleteComment(deleteConfirm.commentId)}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-                >
-                  Delete Comment
-                </button>
+                
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => setDeleteConfirm({show: false, commentId: null})}
+                    className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => deleteConfirm.commentId && handleDeleteComment(deleteConfirm.commentId)}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                  >
+                    Delete {isParentComment && replyCount > 0 ? `Thread + ${replyCount} ${replyCount === 1 ? 'Reply' : 'Replies'}` : (isParentComment ? 'Thread' : 'Reply')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       
       {/* 🎨 Toast Notification Container - Bottom Right */}
       <div className="fixed bottom-4 right-4 z-50 space-y-3 max-w-sm">

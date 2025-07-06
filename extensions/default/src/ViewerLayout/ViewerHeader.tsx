@@ -126,11 +126,11 @@ const RefreshButton = ({ onRefresh }: { onRefresh: () => void }) => {
       </button>
 
       {/* Compact Tooltip */}
-      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-3 border-r-3 border-b-3 border-transparent border-b-slate-800"></div>
+      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-3 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[9999]">
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent" style={{borderBottomColor: '#0f172a'}}></div>
         
-        <div className="bg-slate-800 rounded-lg shadow-2xl border border-slate-600/30 backdrop-blur-sm overflow-hidden">
-          <div className="px-3 py-2 text-white text-sm font-medium flex items-center gap-2 bg-slate-600/90">
+                 <div className="rounded-lg shadow-2xl border-2 border-slate-600 backdrop-blur-sm overflow-hidden" style={{backgroundColor: '#0f172a', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 10px 10px -5px rgba(0, 0, 0, 0.4)'}}>
+          <div className="px-3 py-2 text-white text-sm font-medium flex items-center gap-2" style={{backgroundColor: 'rgba(71, 85, 105, 0.9)'}}>
             <span className="text-lg">🔄</span>
             <span className="font-semibold whitespace-nowrap">
               {isRefreshing ? 'Syncing...' : 'Sync Status'}
@@ -138,7 +138,7 @@ const RefreshButton = ({ onRefresh }: { onRefresh: () => void }) => {
           </div>
           
           <div className="px-3 py-2">
-            <div className="text-slate-200 text-xs leading-relaxed">
+            <div className="text-slate-100 text-xs leading-relaxed font-medium">
               {isRefreshing ? 'Updating thread status' : 'Refresh thread status'}
             </div>
           </div>
@@ -178,7 +178,12 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
         .select('id, data')
         .eq('task_assignment_id', taskId);
 
-      setThreads(commentsData || []);
+      // Filter only parent comments (threads), not replies
+      const parentComments = (commentsData || []).filter(comment => 
+        !comment.data?.parent_comment_id
+      );
+      
+      setThreads(parentComments);
     } catch (error) {
       console.error('Error loading threads:', error);
       setThreads([]);
@@ -251,7 +256,7 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
     if (threads.length === 0) return 'No Threads';
     if (areAllThreadsResolved()) return 'Approve Task';
     const unresolvedCount = getUnresolvedCount();
-    return `Review (${unresolvedCount})`;
+    return `Review ${unresolvedCount}`;
   };
 
   const getButtonState = () => {
@@ -263,10 +268,10 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
 
   const getTooltipText = () => {
     if (isLoadingThreads) return 'Loading...';
-    if (threads.length === 0) return 'Create comments to enable approval';
-    if (areAllThreadsResolved()) return 'Ready to approve!';
+    if (threads.length === 0) return 'No threads yet';
+    if (areAllThreadsResolved()) return 'All threads resolved!';
     const unresolvedCount = getUnresolvedCount();
-    return `${unresolvedCount} thread${unresolvedCount === 1 ? '' : 's'} pending`;
+    return `${unresolvedCount} thread${unresolvedCount === 1 ? '' : 's'} pending. Resolve all to approve.`;
   };
 
   const buttonState = getButtonState();
@@ -305,61 +310,24 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
           {isSubmittingApproval ? 'Approving...' : getButtonText()}
         </span>
         
-        {/* Badge for unresolved count */}
-        {!areAllThreadsResolved() && threads.length > 0 && (
-          <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs font-bold">
-            {getUnresolvedCount()}
-          </span>
-        )}
+
       </button>
 
-      {/* Enhanced Compact Tooltip */}
-      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
-        {/* Tooltip arrow */}
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-3 border-r-3 border-b-3 border-transparent border-b-slate-800"></div>
-        
-        <div className="bg-slate-800 rounded-lg shadow-2xl border border-slate-600/30 backdrop-blur-sm overflow-hidden min-w-48 max-w-64">
-          {/* Header with status */}
-          <div className={`px-3 py-2 text-white text-sm font-medium flex items-center gap-2 ${
-            threads.length === 0 ? 'bg-orange-500/90' : 
-            areAllThreadsResolved() ? 'bg-green-500/90' : 'bg-blue-500/90'
-          }`}>
-            <span className="text-lg">
-              {threads.length === 0 ? '⚠️' : areAllThreadsResolved() ? '✅' : '🔄'}
-            </span>
-            <span className="font-semibold">
-              {threads.length === 0 ? 'No Threads' : areAllThreadsResolved() ? 'Ready!' : 'Pending'}
-            </span>
+      {/* Simple Tooltip */}
+      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-[9999]">
+        <div className="relative bg-white text-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200"
+          style={{
+            minWidth: '180px',
+            background: '#ffffff',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.12)',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          }}
+        >
+          <div className="text-center text-sm font-medium">
+            {getTooltipText()}
           </div>
-          
-          {/* Content */}
-          <div className="px-3 py-2">
-            <div className="text-slate-200 text-xs mb-2 leading-relaxed">
-              {getTooltipText()}
-            </div>
-            
-            {threads.length > 0 && (
-              <div className="flex items-center justify-between text-xs bg-slate-700/50 rounded px-2 py-1.5">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
-                    <span className="text-slate-300">{threads.length}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-green-300">{threads.length - getUnresolvedCount()}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                    <span className="text-orange-300">{getUnresolvedCount()}</span>
-                  </div>
-                </div>
-                <div className="text-slate-400 text-xs">
-                  Total • Done • Todo
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Clean Arrow */}
+          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white border-l border-t border-gray-200 rotate-45"></div>
         </div>
       </div>
     </div>
