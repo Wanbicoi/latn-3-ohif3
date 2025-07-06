@@ -518,26 +518,7 @@ const Thumbnail = ({
                   )}
 
                   {/* Comment - Only for SEG modality - FIXED: Use seriesInstanceUID */}
-                  {modality === 'SEG' && (
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const taskId = urlParams.get('taskId');
-                        const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
-                        // CRITICAL FIX: Use seriesInstanceUID (displaySetInstanceUID) for SEG-specific comments
-                        const commentUrl = `/ohif3/comments?segmentationId=${displaySetInstanceUID}&segmentIndex=1&taskId=${taskId}&StudyInstanceUIDs=${studyInstanceUIDs}&seriesInstanceUID=${seriesInstanceUID}`;
-                        console.log(`🔗 Opening comments for SEG: ${seriesInstanceUID}`);
-                        window.open(commentUrl, '_blank');
-                      }}
-                      className="gap-[6px] text-purple-400 hover:text-purple-300"
-                    >
-                      <Icons.Info className="h-4 w-4" />
-                      <div>
-                        <div className="font-medium">Comment</div>
-                        <div className="text-xs text-gray-400">Medical review discussion</div>
-                      </div>
-                    </DropdownMenuItem>
-                  )}
+
 
                   {/* Download Series - Only for SEG modality */}
                   {modality === 'SEG' && (
@@ -704,26 +685,7 @@ const Thumbnail = ({
               )}
 
               {/* Comment - Only for SEG modality - FIXED: Use seriesInstanceUID */}
-              {modality === 'SEG' && (
-                <DropdownMenuItem
-                  onSelect={() => {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const taskId = urlParams.get('taskId');
-                    const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
-                    // CRITICAL FIX: Use seriesInstanceUID for SEG-specific comments
-                    const commentUrl = `/ohif3/comments?segmentationId=${displaySetInstanceUID}&segmentIndex=1&taskId=${taskId}&StudyInstanceUIDs=${studyInstanceUIDs}&seriesInstanceUID=${seriesInstanceUID}`;
-                    console.log(`🔗 Opening comments for SEG: ${seriesInstanceUID}`);
-                    window.open(commentUrl, '_blank');
-                  }}
-                  className="gap-[6px] text-purple-400 hover:text-purple-300"
-                >
-                  <Icons.Info className="h-4 w-4" />
-                  <div>
-                    <div className="font-medium">Comment</div>
-                    <div className="text-xs text-gray-400">Medical review discussion</div>
-                  </div>
-                </DropdownMenuItem>
-              )}
+
 
               {/* Download Series - Only for SEG modality */}
               {modality === 'SEG' && (

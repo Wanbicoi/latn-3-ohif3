@@ -263,7 +263,10 @@ const SegmentComments: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('🔍 Debug: Checking authentication...');
         const { data: userData, error: authError } = await supabaseClient.auth.getUser();
+        
+        console.log('🔍 Debug: Auth result:', { userData, authError });
         
         if (userData?.user) {
           const actualTaskId = taskId || 'demo-task-id';
@@ -282,6 +285,43 @@ const SegmentComments: React.FC = () => {
             email: userData.user.email || ''
           });
         } else {
+          console.log('⚠️ No authenticated user found, checking session recovery...');
+          
+          // Try to recover session from localStorage or URL params
+          try {
+            // Check if there's a session in localStorage that we can restore
+            const session = await supabaseClient.auth.getSession();
+            console.log('🔍 Debug: Session check:', session);
+            
+            if (session.data.session) {
+              console.log('✅ Found existing session, retrying user load...');
+              // Retry getting user with the session
+              const { data: retryUserData } = await supabaseClient.auth.getUser();
+              if (retryUserData?.user) {
+                console.log('✅ Successfully recovered user from session');
+                const actualTaskId = taskId || 'demo-task-id';
+                const role = await getUserRole(retryUserData.user.id, actualTaskId);
+                
+                const { data: userProfile } = await supabaseClient
+                  .from('_users')
+                  .select('full_name')
+                  .eq('id', retryUserData.user.id)
+                  .single();
+
+                setUser({
+                  id: retryUserData.user.id,
+                  name: userProfile?.full_name || retryUserData.user.email || 'Medical User',
+                  role: role,
+                  email: retryUserData.user.email || ''
+                });
+                return;
+              }
+            }
+          } catch (sessionError) {
+            console.error('❌ Session recovery failed:', sessionError);
+          }
+          
+          console.log('⚠️ Using demo user as fallback');
           setUser({
             id: 'demo-user',
             name: 'Dr. Demo',
@@ -303,13 +343,12 @@ const SegmentComments: React.FC = () => {
     loadData();
   }, [taskId]);
 
-  // Enhanced Comments Loading
+  // Enhanced Comments Loading - Load ALL comments for the task
   const loadComments = async () => {
     try {
       const actualTaskId = taskId || 'demo-task-id';
-      const actualSeriesUID = seriesInstanceUID || 'demo-series-uid';
       
-
+      console.log('🔄 Loading comments for task:', actualTaskId);
 
       const { data: commentsData, error } = await supabaseClient
         .from('_annotation_comments')
@@ -319,7 +358,6 @@ const SegmentComments: React.FC = () => {
           comment,
           created_at,
           data,
-          series_instance_uid,
           _users!_annotation_comments_author_id_fkey (
             id,
             full_name,
@@ -328,7 +366,6 @@ const SegmentComments: React.FC = () => {
           )
         `)
         .eq('task_assignment_id', actualTaskId)
-        .eq('series_instance_uid', actualSeriesUID)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -398,7 +435,7 @@ const SegmentComments: React.FC = () => {
 
   useEffect(() => {
     loadComments();
-  }, [taskId, seriesInstanceUID]);
+  }, [taskId]);
 
   // Load resolved tooltips when comments change
   useEffect(() => {
@@ -430,14 +467,17 @@ const SegmentComments: React.FC = () => {
 
     try {
       const actualTaskId = taskId || 'demo-task-id';
-      const actualSeriesUID = seriesInstanceUID || 'demo-series-uid';
 
       // 🎯 PRIMARY METHOD: Use workflow function (handles auth, permissions, and business logic)
       try {
-        const { error: workflowError } = await supabaseClient.rpc('workflow_annotate_comment', {
+        console.log('🔍 Debug: Calling workflow_annotate_comment with:', {
+          task_assignment_id: actualTaskId,
+          comment: newComment.trim()
+        });
+        
+        const { data: workflowData, error: workflowError } = await supabaseClient.rpc('workflow_annotate_comment', {
           task_assignment_id: actualTaskId,
           comment: newComment.trim(),
-          series_instance_uid: actualSeriesUID,
           data: { 
             priority: commentPriority, 
             status: 'published',
@@ -445,6 +485,8 @@ const SegmentComments: React.FC = () => {
             timestamp: new Date().toISOString()
           }
         });
+        
+        console.log('🔍 Debug: Workflow result:', { workflowData, workflowError });
 
         if (!workflowError) {
           // ✅ SUCCESS: Function handled everything (auth, insert, workflow progression)
@@ -462,6 +504,12 @@ const SegmentComments: React.FC = () => {
         } else {
           console.warn('⚠️ Workflow function failed:', workflowError);
           
+          // Check specific error types
+          if (workflowError.code === '42883') {
+            console.log('ℹ️ Workflow function does not exist, using fallback');
+            throw new Error('Function does not exist');
+          }
+          
           // Check if it's a permission error - STOP immediately, no fallback
           if (workflowError.message && workflowError.message.includes('permission')) {
             showError(
@@ -475,7 +523,7 @@ const SegmentComments: React.FC = () => {
           throw new Error(workflowError.message || 'Workflow function failed');
         }
       } catch (workflowErr) {
-        console.warn('⚠️ Workflow function error, trying fallback:', workflowErr);
+        console.warn('⚠️ Workflow function error, using fallback:', workflowErr);
       }
 
       // 🔄 FALLBACK METHOD: Direct insert (only if workflow function fails)
@@ -485,12 +533,45 @@ const SegmentComments: React.FC = () => {
       const { data: userData, error: authError } = await supabaseClient.auth.getUser();
       
       if (authError || !userData?.user) {
+        console.log('❌ No authentication for fallback, using current user context');
+        // Use current user context if available, otherwise create local comment
+        if (user && user.id !== 'demo-user') {
+          // User is logged in but auth call failed, use user context
+                     const commentData = {
+             task_assignment_id: actualTaskId,
+             author_id: user.id,
+             comment: newComment.trim(),
+             data: { 
+               priority: commentPriority, 
+               status: 'published',
+               source: 'ohif_ui_fallback_with_context',
+               fallback_reason: 'auth_call_failed'
+             }
+           };
+
+          const { data: savedComment, error: insertError } = await supabaseClient
+            .from('_annotation_comments')
+            .insert(commentData)
+            .select('*')
+            .single();
+
+          if (!insertError && savedComment) {
+            console.log('✅ Comment saved using user context');
+            await loadComments();
+            setNewComment('');
+            setCommentPriority('medium');
+            setIsLoading(false);
+            return;
+          }
+        }
+        
         // 💾 OFFLINE FALLBACK: Local storage
+        console.log('💾 Saving comment locally');
         const localComment: Comment = {
           id: `local-${Date.now()}`,
           author_id: 'local-user',
-          author_name: 'Offline User',
-          author_role: 'Clinical Specialist',
+          author_name: user?.name || 'Offline User',
+          author_role: user?.role || 'Clinical Specialist',
           comment: newComment.trim(),
           created_at: new Date().toISOString(),
           data: { priority: commentPriority, status: 'draft' },
@@ -501,7 +582,7 @@ const SegmentComments: React.FC = () => {
         setComments([...comments, localComment]);
         setNewComment('');
         setCommentPriority('medium');
-        console.log('💾 Comment saved locally. Please login to sync to database.');
+        showWarning('Offline Mode', 'Comment saved locally. Please check your connection.');
         setIsLoading(false);
         return;
       }
@@ -527,7 +608,6 @@ const SegmentComments: React.FC = () => {
         task_assignment_id: actualTaskId,
         author_id: userData.user.id,
         comment: newComment.trim(),
-        series_instance_uid: actualSeriesUID,
         data: { 
           priority: commentPriority, 
           status: 'published',
@@ -806,17 +886,59 @@ const SegmentComments: React.FC = () => {
 
     try {
       const actualTaskId = taskId || 'demo-task-id';
-      const actualSeriesUID = seriesInstanceUID || 'demo-series-uid';
 
+      // 🎯 PRIMARY METHOD: Use workflow function for replies
+      try {
+        console.log('🔍 Debug: Calling workflow_annotate_comment for reply with:', {
+          task_assignment_id: actualTaskId,
+          comment: replyText.trim(),
+          parent_comment_id: parentCommentId
+        });
+        
+        const { data: workflowData, error: workflowError } = await supabaseClient.rpc('workflow_annotate_comment', {
+          task_assignment_id: actualTaskId,
+          comment: replyText.trim(),
+          data: { 
+            priority: 'medium', 
+            status: 'published',
+            parent_comment_id: parentCommentId,
+            source: 'ohif_ui_reply',
+            timestamp: new Date().toISOString()
+          }
+        });
+        
+        console.log('🔍 Debug: Reply workflow result:', { workflowData, workflowError });
+
+        if (!workflowError) {
+          // ✅ SUCCESS: Function handled everything
+          console.log('✅ Reply submitted successfully via workflow function');
+          
+          // Reload comments to show the new reply
+          await loadComments();
+          
+          // Reset reply form
+          setReplyTexts(prev => ({ ...prev, [parentCommentId]: '' }));
+          setReplyMode(prev => ({ ...prev, [parentCommentId]: false }));
+          
+          setIsSubmittingReply(prev => ({ ...prev, [parentCommentId]: false }));
+          return;
+        }
+        
+        console.log('🔄 Reply workflow function failed, trying direct database insert...');
+      } catch (workflowErr) {
+        console.log('🔄 Reply workflow function error, trying fallback:', workflowErr);
+      }
+
+      // 🔄 FALLBACK: Direct database insert
       const replyData = {
         task_assignment_id: actualTaskId,
         author_id: user.id,
         comment: replyText.trim(),
-        series_instance_uid: actualSeriesUID,
         data: { 
           priority: 'medium' as const, 
           status: 'published' as const,
-          parent_comment_id: parentCommentId
+          parent_comment_id: parentCommentId,
+          source: 'ohif_ui_reply_fallback'
         }
       };
 
@@ -827,6 +949,8 @@ const SegmentComments: React.FC = () => {
         .single();
 
       if (!error && savedReply) {
+        console.log('✅ Reply saved via direct database insert');
+        
         const newReply: Comment = {
           id: savedReply.id,
           author_id: savedReply.author_id,
@@ -842,9 +966,13 @@ const SegmentComments: React.FC = () => {
         setComments(prev => [...prev, newReply]);
         setReplyTexts(prev => ({ ...prev, [parentCommentId]: '' }));
         setReplyMode(prev => ({ ...prev, [parentCommentId]: false }));
+      } else {
+        console.error('❌ Failed to save reply:', error);
+        alert(`Failed to save reply: ${error?.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Failed to save reply:', error);
+      alert(`Error saving reply: ${error.message || 'Unknown error'}`);
     } finally {
       setIsSubmittingReply(prev => ({ ...prev, [parentCommentId]: false }));
     }
@@ -947,25 +1075,22 @@ const SegmentComments: React.FC = () => {
     
     try {
       const actualTaskId = taskId || 'demo-task-id';
-      const actualSegmentationId = segmentationId || 'demo-segmentation-id';
       
-      console.log('🎯 Submitting approval for:', {
-        task_assignment_id: actualTaskId,
-        segmentation_id: actualSegmentationId
+      console.log('🎯 Approving task assignment:', {
+        task_assignment_id: actualTaskId
       });
       
-      // Call the workflow function
-      const { error } = await supabaseClient.rpc('workflow_annotate_submit', {
-        task_assignment_id: actualTaskId,
-        segmentation_id: actualSegmentationId
+      // Call the workflow approve function
+      const { error } = await supabaseClient.rpc('workflow_annotate_approve', {
+        task_assignment_id: actualTaskId
       });
       
       if (error) {
         console.error('❌ Approval failed:', error);
-        showError('Approval Failed', error.message || 'Failed to submit approval. Please try again.');
+        showError('Approval Failed', error.message || 'Failed to approve task. Please try again.');
       } else {
-        console.log('✅ Approval submitted successfully');
-        showSuccess('Approval Submitted', 'All threads have been reviewed and approved successfully!');
+        console.log('✅ Task approved successfully');
+        showSuccess('Task Approved', 'All threads have been reviewed and the task has been approved successfully!');
         
         // Optionally reload comments or update UI state
         await loadComments();
@@ -1086,8 +1211,8 @@ const SegmentComments: React.FC = () => {
               </div>
               
               <div>
-                <h1 className="text-lg font-bold text-white" style={{color: '#ffffff'}}>AI-Powered Medical Review</h1>
-                <p className="text-blue-200 text-xs" style={{color: '#ffffff'}}>Advanced Diagnostic Assessment Platform</p>
+                <h1 className="text-lg font-bold text-white" style={{color: '#ffffff'}}>Task Review & Comments</h1>
+                <p className="text-blue-200 text-xs" style={{color: '#ffffff'}}>Collaborative medical task assessment platform</p>
               </div>
               
               <button 
@@ -1256,13 +1381,13 @@ const SegmentComments: React.FC = () => {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h2 className="text-xl font-bold text-black" style={{color: '#000000'}}>
-                    Clinical Assessment
+                    Task Assessment Hub
                   </h2>
                   <span className="series-badge">
-                    🎯 DICOM Series
+                    🎯 Task Level
                   </span>
                 </div>
-                <p className="text-black font-medium text-sm" style={{color: '#000000'}}>Professional medical annotation review & diagnostic discussion platform</p>
+                <p className="text-black font-medium text-sm" style={{color: '#000000'}}>Comprehensive task review, comments and collaboration platform</p>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 bg-white/80 rounded-xl border border-slate-200 shadow-sm">
                 <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>

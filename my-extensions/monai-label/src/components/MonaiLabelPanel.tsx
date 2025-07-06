@@ -31,7 +31,7 @@ import * as cornerstoneTools from '@cornerstonejs/tools';
 import optionsInputDialog from './OptionsInputDialog';
 import { PanelSegmentation } from '@ohif/extension-cornerstone';
 import { Toolbox, Button, Icons } from '@ohif/ui-next';
-import SegmentationComments from '../../../../platform/ui-next/src/components/SegmentationTable/SegmentationComments';
+
 import SegmentationTools from './actions/SegmentationTools';
 
 export default class MonaiLabelPanel extends Component {

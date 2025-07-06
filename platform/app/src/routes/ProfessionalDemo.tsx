@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ProfessionalHeader } from '../../../ui-next/src/components/ProfessionalHeader';
-import { FloatingSegmentationComments } from '../../../ui-next/src/components/SegmentationTable/FloatingSegmentationComments';
+
 import { 
   Activity, 
   Layers, 
@@ -314,13 +314,7 @@ const ProfessionalDemo: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Comments Component (will only show if URL has proper parameters) */}
-      <FloatingSegmentationComments
-        activeSegmentId={1}
-        segmentation={null}
-        representation={null}
-        servicesManager={null}
-      />
+
     </div>
   );
 };
