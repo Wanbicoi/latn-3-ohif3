@@ -4,6 +4,7 @@ import { UserPreferences } from '@ohif/ui';
 import { Toolbar } from '../Toolbar/Toolbar';
 import HeaderPatientInfo from './HeaderPatientInfo';
 import { PatientInfoVisibility } from './HeaderPatientInfo/HeaderPatientInfo';
+import AccessGuard from './AccessGuard';
 
 // Import Supabase
 import { supabaseClient } from '../../../../platform/ui-next/src/lib/utils';
@@ -330,7 +331,8 @@ const UserAccountHeaderOHIF = () => {
   );
 };
 
-function ViewerHeader({
+// Main ViewerHeader Component wrapped with AccessGuard
+function ViewerHeaderContent({
   servicesManager,
   appConfig,
 }: any) {
@@ -402,6 +404,15 @@ function ViewerHeader({
         </div>
       </div>
     </div>
+  );
+}
+
+// Exported component with AccessGuard protection
+function ViewerHeader(props: any) {
+  return (
+    <AccessGuard>
+      <ViewerHeaderContent {...props} />
+    </AccessGuard>
   );
 }
 
