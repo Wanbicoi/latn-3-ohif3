@@ -712,6 +712,17 @@ function ViewerHeaderContent({
                 </h1>
               </div>
             </div>
+            
+            {/* Patient Information */}
+            <div className="hidden md:block ml-4 pl-4 border-l border-slate-600/50">
+              <HeaderPatientInfo 
+                servicesManager={servicesManager} 
+                appConfig={{ 
+                  ...appConfig, 
+                  showPatientInfo: PatientInfoVisibility.VISIBLE 
+                }} 
+              />
+            </div>
           </div>
 
           {/* Center - Clean Toolbar */}
