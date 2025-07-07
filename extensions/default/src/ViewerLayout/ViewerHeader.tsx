@@ -139,7 +139,7 @@ const RefreshButton = ({ onRefresh }: { onRefresh: () => void }) => {
           
           <div className="px-3 py-2">
             <div className="text-slate-100 text-xs leading-relaxed font-medium">
-              {isRefreshing ? 'Updating thread status' : 'Refresh thread status'}
+              {isRefreshing ? 'Updating thread status & user role' : 'Refresh thread status & user role'}
             </div>
           </div>
         </div>
@@ -335,10 +335,11 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
 };
 
 // User Account Component  
-const UserAccountHeaderOHIF = () => {
+const UserAccountHeaderOHIF = ({ refreshTrigger }: { refreshTrigger?: number }) => {
   const [user, setUser] = React.useState(null);
   const [isDropdown, setIsDropdown] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   // Function to get user role from database chain
   const getUserRole = async (userId: string, taskAssignmentId: string): Promise<string> => {
@@ -400,69 +401,87 @@ const UserAccountHeaderOHIF = () => {
     }
   };
 
-  React.useEffect(() => {
-    const loadUserData = async () => {
+  const loadUserData = async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
       setIsLoading(true);
+    }
+    
+    try {
+      // Get URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const taskId = urlParams.get('taskId');
       
-      try {
-        // Get URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        const taskId = urlParams.get('taskId');
-        
-        // Get authenticated user
-        const { data: userData, error: authError } = await supabaseClient.auth.getUser();
-        
-        if (authError || !userData?.user) {
+      // Get authenticated user
+      const { data: userData, error: authError } = await supabaseClient.auth.getUser();
+      
+              if (authError || !userData?.user) {
           console.log('❌ No authenticated user found, using fallback');
-          setUser({
-            name: 'Dr. Medical User',
-            role: 'Medical Professional',
-            avatar: null,
-            taskId: taskId,
-            isAuthenticated: false
-          });
-          setIsLoading(false);
+          if (!isRefresh) {
+            setUser({
+              name: 'Dr. Medical User',
+              role: 'Medical Professional',
+              avatar: null,
+              taskId: taskId,
+              isAuthenticated: false
+            });
+          }
+          if (isRefresh) {
+            setIsRefreshing(false);
+          } else {
+            setIsLoading(false);
+          }
           return;
         }
 
-        let userName = userData.user.email || 'Medical User';
-        let userRole = 'Medical Professional';
+      let userName = userData.user.email || 'Medical User';
+      let userRole = 'Medical Professional';
+      
+      // Get user's full name from _users table
+      try {
+        const { data: userProfile } = await supabaseClient
+          .from('_users')
+          .select('full_name')
+          .eq('id', userData.user.id)
+          .single();
         
-        // Get user's full name from _users table
-        try {
-          const { data: userProfile } = await supabaseClient
-            .from('_users')
-            .select('full_name')
-            .eq('id', userData.user.id)
-            .single();
-          
-          if (userProfile?.full_name) {
-            userName = userProfile.full_name;
-          }
-        } catch (e) {
-          console.log('Could not get user profile from _users');
+        if (userProfile?.full_name) {
+          userName = userProfile.full_name;
         }
-        
-        // Get user role using task assignment chain
-        if (taskId) {
-          userRole = await getUserRole(userData.user.id, taskId);
-        }
-        
-        setUser({
-          name: userName,
-          role: userRole,
-          avatar: null,
-          taskId: taskId,
-          isAuthenticated: true,
-          userId: userData.user.id
-        });
-        
+      } catch (e) {
+        console.log('Could not get user profile from _users');
+      }
+      
+      // Get user role using task assignment chain
+      if (taskId) {
+        userRole = await getUserRole(userData.user.id, taskId);
+      }
+      
+      // Check if role has changed
+      const previousRole = user?.role;
+      const roleChanged = previousRole && previousRole !== userRole;
+      
+      setUser({
+        name: userName,
+        role: userRole,
+        avatar: null,
+        taskId: taskId,
+        isAuthenticated: true,
+        userId: userData.user.id
+      });
+      
+      if (roleChanged) {
+        console.log(`🔄 Role updated: ${previousRole} → ${userRole}`);
+      } else {
         console.log(`✅ Loaded user: ${userName} (${userRole})`);
-        
-      } catch (error) {
-        console.error('❌ Error loading user data:', error);
-        
-        // Fallback user
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading user data:', error);
+      
+      // Fallback user - only set if not refreshing
+      if (!isRefresh) {
         setUser({
           name: 'Dr. Medical User',
           role: 'Medical Professional',
@@ -471,12 +490,26 @@ const UserAccountHeaderOHIF = () => {
           isAuthenticated: false
         });
       }
-      
+    }
+    
+    if (isRefresh) {
+      setIsRefreshing(false);
+    } else {
       setIsLoading(false);
-    };
+    }
+  };
 
+  React.useEffect(() => {
     loadUserData();
   }, []);
+
+  // Refresh user data when triggered from parent
+  React.useEffect(() => {
+    if (refreshTrigger) {
+      console.log('🔄 Refreshing user data...');
+      loadUserData(true);
+    }
+  }, [refreshTrigger]);
 
   const handleLogout = async () => {
     try {
@@ -534,22 +567,29 @@ const UserAccountHeaderOHIF = () => {
         onClick={() => setIsDropdown(!isDropdown)}
         className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 transition-all duration-300 border border-slate-600/50 backdrop-blur-sm text-white hover:scale-[1.02] shadow-lg hover:shadow-xl group"
       >
-        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getRoleColor(user.role)} flex items-center justify-center shadow-lg ring-2 ring-slate-600/30 group-hover:ring-slate-500/50 transition-all duration-300`}>
-          <span className="text-white text-sm">
-            {getRoleIcon(user.role)}
-          </span>
+        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getRoleColor(user.role)} flex items-center justify-center shadow-lg ring-2 ring-slate-600/30 group-hover:ring-slate-500/50 transition-all duration-300 relative`}>
+          {isRefreshing ? (
+            <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+          ) : (
+            <span className="text-white text-sm">
+              {getRoleIcon(user.role)}
+            </span>
+          )}
         </div>
         <div className="hidden lg:flex flex-col items-start min-w-0 gap-0.5">
           <div className="text-sm font-semibold truncate max-w-32 text-white group-hover:text-emerald-300 transition-colors">
-            {user.name}
+            {isRefreshing ? 'Updating...' : user.name}
           </div>
           <div className="text-slate-400 text-xs font-medium bg-slate-700/50 px-2 py-0.5 rounded-md">
-            {user.role}
+            {isRefreshing ? 'Refreshing role...' : user.role}
           </div>
         </div>
         <div className="hidden md:block lg:hidden">
           <div className="text-xs font-semibold text-white">
-            {user.name?.split(' ')[0] || 'User'}
+            {isRefreshing ? 'Updating...' : (user.name?.split(' ')[0] || 'User')}
           </div>
         </div>
         <svg className={`w-4 h-4 text-slate-400 transition-transform hidden md:block ${isDropdown ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
@@ -577,14 +617,23 @@ const UserAccountHeaderOHIF = () => {
             <div className={`bg-gradient-to-r ${getRoleColor(user.role)} p-4`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-white/25 flex items-center justify-center shadow-lg">
-                  <span className="text-white text-lg font-semibold">
-                    {getRoleIcon(user.role)}
-                  </span>
+                  {isRefreshing ? (
+                    <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                  ) : (
+                    <span className="text-white text-lg font-semibold">
+                      {getRoleIcon(user.role)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-white font-bold text-base truncate">{user.name}</div>
+                  <div className="text-white font-bold text-base truncate">
+                    {isRefreshing ? 'Updating user information...' : user.name}
+                  </div>
                   <div className="text-white/85 text-sm bg-white/20 px-2 py-0.5 rounded-md inline-block mt-1">
-                    {user.role}
+                    {isRefreshing ? 'Refreshing role...' : user.role}
                   </div>
                 </div>
               </div>
@@ -603,8 +652,8 @@ const UserAccountHeaderOHIF = () => {
               {/* Status Info */}
               <div className="px-4 py-3 border-b border-slate-700/50">
                 <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <div className={`w-2 h-2 rounded-full ${user.isAuthenticated ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-                  {user.isAuthenticated ? 'Authenticated Session' : 'Guest Session'}
+                  <div className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-blue-400 animate-pulse' : user.isAuthenticated ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                  {isRefreshing ? 'Refreshing Session Info...' : user.isAuthenticated ? 'Authenticated Session' : 'Guest Session'}
                 </div>
               </div>
 
@@ -662,11 +711,18 @@ function ViewerHeaderContent({
   appConfig,
 }: any) {
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
+  const [userRefreshTrigger, setUserRefreshTrigger] = React.useState(0);
   const [toasts, setToasts] = React.useState<Array<{id: number, message: string, type: 'success' | 'error'}>>([]);
   
   const handleRefresh = async () => {
-    // Trigger refresh in ApproveButton
+    // Trigger refresh in ApproveButton and UserAccount
     setRefreshTrigger(prev => prev + 1);
+    setUserRefreshTrigger(prev => prev + 1);
+    
+    // Show success toast
+    setTimeout(() => {
+      showToast('Update information successfully!', 'success');
+    }, 500);
   };
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -799,7 +855,7 @@ function ViewerHeaderContent({
             {/* 🔄 Refresh Button - Positioned between Approve and Profile */}
             <RefreshButton onRefresh={handleRefresh} />
             
-            <UserAccountHeaderOHIF />
+            <UserAccountHeaderOHIF refreshTrigger={userRefreshTrigger} />
           </div>
         </div>
       </div>
