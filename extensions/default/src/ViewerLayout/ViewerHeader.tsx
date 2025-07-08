@@ -5,6 +5,20 @@ import { Toolbar } from '../Toolbar/Toolbar';
 import HeaderPatientInfo from './HeaderPatientInfo';
 import { PatientInfoVisibility } from './HeaderPatientInfo/HeaderPatientInfo';
 import AccessGuard from './AccessGuard';
+import { createClient } from '@supabase/supabase-js';
+
+// Global type declarations
+declare global {
+  interface Window {
+    selectedSegmentationForApproval?: {
+      segmentationId: string;
+      seriesInstanceUID: string;
+      label: string;
+      timestamp: number;
+    };
+    showToast?: (message: string, type: 'success' | 'error') => void;
+  }
+}
 
 // Add CSS animation for toast
 const toastStyles = `
@@ -30,7 +44,6 @@ if (typeof document !== 'undefined') {
 
 // Import Supabase
 import { supabaseClient } from '../../../../platform/ui-next/src/lib/utils';
-import { createClient } from '@supabase/supabase-js';
 
 // Toast Notification Component
 const ToastNotification = ({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) => {
@@ -232,8 +245,23 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
         db: { schema: 'public_v2' }
       });
 
+      // Get selected segmentation from global state
+      const selectedSegmentation = window.selectedSegmentationForApproval;
+      
+      if (!selectedSegmentation) {
+        showToast('Please select a segmentation for clinical validation first', 'error');
+        return;
+      }
+
+      console.log('🎯 Approving task with selected segmentation:', {
+        taskId,
+        segmentation: selectedSegmentation.label,
+        seriesInstanceUID: selectedSegmentation.seriesInstanceUID
+      });
+
       const { error } = await client.rpc('workflow_annotate_approve', {
-        task_assignment_id: taskId
+        task_assignment_id: taskId,
+        segmentation_id: selectedSegmentation.seriesInstanceUID
       });
       
       if (error) {
@@ -254,7 +282,13 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   const getButtonText = () => {
     if (isLoadingThreads) return 'Loading...';
     if (threads.length === 0) return 'No Threads';
-    if (areAllThreadsResolved()) return 'Approve Task';
+    if (areAllThreadsResolved()) {
+      const selectedSegmentation = window.selectedSegmentationForApproval;
+      if (selectedSegmentation) {
+        return `Approve with ${selectedSegmentation.label}`;
+      }
+      return 'Select SEG to Approve';
+    }
     const unresolvedCount = getUnresolvedCount();
     return `Review ${unresolvedCount}`;
   };
@@ -263,13 +297,23 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
     if (isLoadingThreads || threads.length === 0 || !areAllThreadsResolved()) {
       return 'disabled';
     }
+    const selectedSegmentation = window.selectedSegmentationForApproval;
+    if (!selectedSegmentation) {
+      return 'needs-selection';
+    }
     return 'ready';
   };
 
   const getTooltipText = () => {
     if (isLoadingThreads) return 'Loading...';
     if (threads.length === 0) return 'No threads yet';
-    if (areAllThreadsResolved()) return 'All threads resolved!';
+    if (areAllThreadsResolved()) {
+      const selectedSegmentation = window.selectedSegmentationForApproval;
+      if (selectedSegmentation) {
+        return `Ready to approve with selected segmentation: ${selectedSegmentation.label}`;
+      }
+      return 'All threads resolved. Please select a segmentation for clinical validation first.';
+    }
     const unresolvedCount = getUnresolvedCount();
     return `${unresolvedCount} thread${unresolvedCount === 1 ? '' : 's'} pending. Resolve all to approve.`;
   };
@@ -284,9 +328,11 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
         className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 backdrop-blur-sm border font-medium text-sm shadow-lg hover:shadow-xl ${
           buttonState === 'ready' 
             ? 'bg-green-600/80 hover:bg-green-600 text-white border-green-500/50 hover:scale-105' 
-            : threads.length === 0
-              ? 'bg-orange-500/50 text-orange-200 border-orange-400/30 cursor-not-allowed opacity-80'
-              : 'bg-blue-500/50 text-blue-200 border-blue-400/30 cursor-not-allowed opacity-80'
+            : buttonState === 'needs-selection'
+              ? 'bg-amber-600/50 text-amber-200 border-amber-500/30 cursor-not-allowed opacity-80'
+              : threads.length === 0
+                ? 'bg-orange-500/50 text-orange-200 border-orange-400/30 cursor-not-allowed opacity-80'
+                : 'bg-blue-500/50 text-blue-200 border-blue-400/30 cursor-not-allowed opacity-80'
         }`}
       >
         {/* Icon */}
@@ -299,7 +345,11 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
           ) : threads.length === 0 ? (
             <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
           ) : areAllThreadsResolved() ? (
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+            buttonState === 'needs-selection' ? (
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+            ) : (
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+            )
           ) : (
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
           )}
@@ -728,12 +778,25 @@ function ViewerHeaderContent({
   const showToast = (message: string, type: 'success' | 'error') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 4000);
   };
 
   const removeToast = (id: number) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
   const { t } = useTranslation();
+
+  // Setup global showToast function for other components to use
+  React.useEffect(() => {
+    window.showToast = showToast;
+    return () => {
+      delete window.showToast;
+    };
+  }, []);
 
   return (
     <>

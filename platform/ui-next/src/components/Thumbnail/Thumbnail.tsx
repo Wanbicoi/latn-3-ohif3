@@ -17,6 +17,20 @@ import { Dialog, ButtonEnums } from '@ohif/ui';
 // import { SeriesDownloadButton } from '../SegmentationTable/SeriesDownloadButton';
 import { toast } from '../Sonner';
 import { supabaseClient } from '../../lib/utils';
+import { SegmentationSelectionModal } from '../SegmentationSelectionModal';
+
+// Global type declarations
+declare global {
+  interface Window {
+    selectedSegmentationForApproval?: {
+      segmentationId: string;
+      seriesInstanceUID: string;
+      label: string;
+      timestamp: number;
+    };
+    showToast?: (message: string, type: 'success' | 'error') => void;
+  }
+}
 
 interface IUserProfile {
   id: string;
@@ -55,6 +69,44 @@ const Thumbnail = ({
   onThumbnailContextMenu,
   servicesManager,
 }): React.ReactNode => {
+  // State for clinical validation selection
+  const [isSelectedForValidation, setIsSelectedForValidation] = useState(false);
+  // State for selection modal
+  const [showSelectionModal, setShowSelectionModal] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<{
+    currentSelection: string;
+    newSelection: string;
+  } | null>(null);
+
+  // Check if this SEG is currently selected for validation
+  useEffect(() => {
+    const selectedSeg = window.selectedSegmentationForApproval;
+    const isCurrentlySelected = selectedSeg?.seriesInstanceUID === seriesInstanceUID || 
+                               selectedSeg?.segmentationId === displaySetInstanceUID;
+    setIsSelectedForValidation(isCurrentlySelected);
+  }, [seriesInstanceUID, displaySetInstanceUID]);
+
+  // Listen for global segmentation selection changes
+  useEffect(() => {
+    const handleSelectionChange = (event) => {
+      const { newSelection } = event.detail;
+      
+      if (newSelection === null) {
+        // Clear all selections
+        setIsSelectedForValidation(false);
+      } else {
+        const isCurrentlySelected = newSelection?.seriesInstanceUID === seriesInstanceUID || 
+                                   newSelection?.segmentationId === displaySetInstanceUID;
+        setIsSelectedForValidation(isCurrentlySelected);
+      }
+    };
+
+    window.addEventListener('segmentationSelectionChanged', handleSelectionChange);
+    
+    return () => {
+      window.removeEventListener('segmentationSelectionChanged', handleSelectionChange);
+    };
+  }, [seriesInstanceUID, displaySetInstanceUID]);
   // TODO: We should wrap our thumbnail to create a "DraggableThumbnail", as
   // this will still allow for "drag", even if there is no drop target for the
   // specified item.
@@ -224,6 +276,129 @@ const Thumbnail = ({
   };
 
   // Download handler for SEG series
+  // Handle clinical validation selection
+  const handleClinicalValidation = () => {
+    if (isSelectedForValidation) {
+      // Deselect if already selected
+      setIsSelectedForValidation(false);
+      
+      // Clear global state
+      if (window.selectedSegmentationForApproval) {
+        delete window.selectedSegmentationForApproval;
+      }
+      
+      console.log('🔹 Clinical validation cleared for:', description);
+      
+      // Show notification
+      if (window.showToast) {
+        window.showToast('Clinical validation cleared', 'success');
+      }
+      
+      // Force re-render of all thumbnails to update their selection state
+      window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
+        detail: { newSelection: null }
+      }));
+    } else {
+      // Check if another SEG is already selected
+      const currentlySelected = window.selectedSegmentationForApproval;
+      
+      if (currentlySelected && currentlySelected.seriesInstanceUID !== seriesInstanceUID) {
+        // Another SEG is already selected, show professional modal
+        const currentLabel = description || `SEG S${seriesNumber}`;
+        setPendingSelection({
+          currentSelection: currentlySelected.label,
+          newSelection: currentLabel
+        });
+        setShowSelectionModal(true);
+      } else {
+        // No other SEG selected, proceed normally
+        const timestamp = Date.now();
+        setIsSelectedForValidation(true);
+        
+        // Set global state for the Approve Task button to use
+        window.selectedSegmentationForApproval = {
+          segmentationId: displaySetInstanceUID,
+          seriesInstanceUID: seriesInstanceUID,
+          label: description || `SEG S${seriesNumber}`,
+          timestamp: timestamp
+        };
+        
+        console.log('✅ SEG selected for clinical validation:', {
+          label: description,
+          segmentationId: displaySetInstanceUID,
+          seriesInstanceUID: seriesInstanceUID
+        });
+        
+        // Show notification
+        if (window.showToast) {
+          window.showToast(
+            `Selected "${description || `SEG S${seriesNumber}`}" for final clinical validation. This segmentation will be used when approving the task.`,
+            'success'
+          );
+        }
+        
+        // Force re-render of all thumbnails to update their selection state
+        window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
+          detail: { newSelection: window.selectedSegmentationForApproval }
+        }));
+      }
+    }
+  };
+
+  // Handle modal confirmation
+  const handleModalConfirm = () => {
+    if (!pendingSelection) return;
+    
+    // User confirmed, switch to new SEG
+    const timestamp = Date.now();
+    setIsSelectedForValidation(true);
+    
+    // Update global state
+    window.selectedSegmentationForApproval = {
+      segmentationId: displaySetInstanceUID,
+      seriesInstanceUID: seriesInstanceUID,
+      label: description || `SEG S${seriesNumber}`,
+      timestamp: timestamp
+    };
+    
+    console.log('🔄 SEG selection switched to:', {
+      from: pendingSelection.currentSelection,
+      to: pendingSelection.newSelection,
+      newSeriesInstanceUID: seriesInstanceUID
+    });
+    
+    // Show notification
+    if (window.showToast) {
+      window.showToast(
+        `Switched clinical validation selection to "${pendingSelection.newSelection}"`,
+        'success'
+      );
+    }
+    
+    // Force re-render of all thumbnails to update their selection state
+    window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
+      detail: { newSelection: window.selectedSegmentationForApproval }
+    }));
+    
+    // Close modal
+    setShowSelectionModal(false);
+    setPendingSelection(null);
+  };
+
+  // Handle modal close/cancel
+  const handleModalClose = () => {
+    // User cancelled, show info message
+    if (window.showToast && pendingSelection) {
+      window.showToast(
+        `Clinical validation selection remains on "${pendingSelection.currentSelection}"`,
+        'success'
+      );
+    }
+    
+    setShowSelectionModal(false);
+    setPendingSelection(null);
+  };
+
   const handleDownloadSeries = async () => {
     try {
       // Use production Orthanc URL - no process.env in browser
@@ -455,6 +630,26 @@ const Thumbnail = ({
                 messages={messages}
                 id={`display-set-tooltip-${displaySetInstanceUID}`}
               />
+              {/* Clinical Validation Badge for SEG */}
+              {modality === 'SEG' && isSelectedForValidation && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <div className="bg-green-600 text-white rounded-full p-1 shadow-lg shadow-green-500/20 animate-pulse">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      </svg>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <div className="text-sm">
+                      <div className="font-semibold text-green-300">Selected for Clinical Validation</div>
+                      <div className="text-xs text-gray-300 mt-1">
+                        This segmentation will be used for task approval
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {isTracked && (
                 <Tooltip>
                   <TooltipTrigger>
@@ -517,8 +712,41 @@ const Thumbnail = ({
                     </>
                   )}
 
-                  {/* Comment - Only for SEG modality - FIXED: Use seriesInstanceUID */}
-
+                  {/* Clinical Validation - Only for SEG modality */}
+                  {modality === 'SEG' && (
+                    <>
+                      <DropdownMenuItem
+                        onSelect={handleClinicalValidation}
+                        className={`gap-[6px] ${
+                          isSelectedForValidation 
+                            ? 'text-green-400 hover:text-green-300' 
+                            : 'text-amber-400 hover:text-amber-300'
+                        }`}
+                      >
+                        {isSelectedForValidation ? (
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                          </svg>
+                        ) : (
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                          </svg>
+                        )}
+                        <div>
+                          <div className="font-medium">
+                            {isSelectedForValidation ? 'Selected for Validation' : 'Select for Clinical Validation'}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {isSelectedForValidation 
+                              ? 'This segmentation is ready for task approval'
+                              : 'Choose this as the final clinical annotation'
+                            }
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
 
                   {/* Download Series - Only for SEG modality */}
                   {modality === 'SEG' && (
@@ -625,6 +853,27 @@ const Thumbnail = ({
             messages={messages}
             id={`display-set-tooltip-${displaySetInstanceUID}`}
           />
+          
+          {/* Clinical Validation Badge for SEG in List View */}
+          {modality === 'SEG' && isSelectedForValidation && (
+            <Tooltip>
+              <TooltipTrigger>
+                <div className="bg-green-600 text-white rounded-full p-1 shadow-lg shadow-green-500/20 animate-pulse">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                  </svg>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <div className="text-sm">
+                  <div className="font-semibold text-green-300">Selected for Clinical Validation</div>
+                  <div className="text-xs text-gray-300 mt-1">
+                    This segmentation will be used for task approval
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           {isTracked && (
             <Tooltip>
@@ -684,8 +933,41 @@ const Thumbnail = ({
                 </>
               )}
 
-              {/* Comment - Only for SEG modality - FIXED: Use seriesInstanceUID */}
-
+              {/* Clinical Validation - Only for SEG modality */}
+              {modality === 'SEG' && (
+                <>
+                  <DropdownMenuItem
+                    onSelect={handleClinicalValidation}
+                    className={`gap-[6px] ${
+                      isSelectedForValidation 
+                        ? 'text-green-400 hover:text-green-300' 
+                        : 'text-amber-400 hover:text-amber-300'
+                    }`}
+                  >
+                    {isSelectedForValidation ? (
+                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      </svg>
+                    )}
+                    <div>
+                      <div className="font-medium">
+                        {isSelectedForValidation ? 'Selected for Validation' : 'Select for Clinical Validation'}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {isSelectedForValidation 
+                          ? 'This segmentation is ready for task approval'
+                          : 'Choose this as the final clinical annotation'
+                        }
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
 
               {/* Download Series - Only for SEG modality */}
               {modality === 'SEG' && (
@@ -730,9 +1012,11 @@ const Thumbnail = ({
     <div
       className={classnames(
         className,
-        'bg-muted hover:bg-primary/30 group flex cursor-pointer select-none flex-col rounded outline-none',
+        'bg-muted hover:bg-primary/30 group flex cursor-pointer select-none flex-col rounded outline-none transition-all duration-300',
         viewPreset === 'thumbnails' && 'h-[170px] w-[135px]',
-        viewPreset === 'list' && 'col-span-2 h-[40px] w-[275px]'
+        viewPreset === 'list' && 'col-span-2 h-[40px] w-[275px]',
+        // Highlight for clinical validation selection
+        modality === 'SEG' && isSelectedForValidation && 'ring-2 ring-green-500 ring-opacity-50 bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/20'
       )}
       id={`thumbnail-${displaySetInstanceUID}`}
       data-cy={
@@ -753,6 +1037,17 @@ const Thumbnail = ({
         {viewPreset === 'thumbnails' && renderThumbnailPreset()}
         {viewPreset === 'list' && renderListPreset()}
       </div>
+      
+      {/* Professional Modal for Segmentation Selection */}
+      {pendingSelection && (
+        <SegmentationSelectionModal
+          isOpen={showSelectionModal}
+          onClose={handleModalClose}
+          onConfirm={handleModalConfirm}
+          currentSelection={pendingSelection.currentSelection}
+          newSelection={pendingSelection.newSelection}
+        />
+      )}
     </div>
   );
 };
