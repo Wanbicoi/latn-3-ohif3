@@ -18,6 +18,7 @@ import { Dialog, ButtonEnums } from '@ohif/ui';
 import { toast } from '../Sonner';
 import { supabaseClient } from '../../lib/utils';
 import { SegmentationSelectionModal } from '../SegmentationSelectionModal';
+import { createClient } from '@supabase/supabase-js';
 
 // Global type declarations
 declare global {
@@ -77,6 +78,64 @@ const Thumbnail = ({
     currentSelection: string;
     newSelection: string;
   } | null>(null);
+
+  // Add state for threads checking
+  const [threads, setThreads] = useState([]);
+  const [isLoadingThreads, setIsLoadingThreads] = useState(false);
+
+  // Function to load and check threads status
+  const loadThreads = async () => {
+    try {
+      setIsLoadingThreads(true);
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const taskId = urlParams.get('taskId');
+      
+      if (!taskId) {
+        setThreads([]);
+        return;
+      }
+
+      const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+      const client = createClient(supabaseUrl, supabaseKey, {
+        db: { schema: 'public_v2' }
+      });
+
+      const { data: commentsData } = await client
+        .from('_annotation_comments')
+        .select('id, data')
+        .eq('task_assignment_id', taskId);
+
+      // Filter only parent comments (threads), not replies
+      const parentComments = (commentsData || []).filter(comment => 
+        !comment.data?.parent_comment_id
+      );
+      
+      setThreads(parentComments);
+    } catch (error) {
+      console.error('Error loading threads:', error);
+      setThreads([]);
+    } finally {
+      setIsLoadingThreads(false);
+    }
+  };
+
+  // Function to check if all threads are resolved
+  const areAllThreadsResolved = (): boolean => {
+    if (threads.length === 0) return true; // No threads = OK to proceed
+    return threads.every((thread: any) => thread.data?.status === 'resolved');
+  };
+
+  // Function to get unresolved thread count
+  const getUnresolvedCount = (): number => {
+    return threads.filter((thread: any) => thread.data?.status !== 'resolved').length;
+  };
+
+  // Load threads on component mount
+  useEffect(() => {
+    loadThreads();
+  }, []);
 
   // Check if this SEG is currently selected for validation
   useEffect(() => {
@@ -275,9 +334,25 @@ const Thumbnail = ({
     }
   };
 
-  // Download handler for SEG series
-  // Handle clinical validation selection
-  const handleClinicalValidation = () => {
+  // Handle clinical validation selection with threads check
+  const handleClinicalValidation = async () => {
+    // Refresh threads status before proceeding
+    await loadThreads();
+    
+    // Check if threads are resolved before allowing selection
+    if (!areAllThreadsResolved()) {
+      const unresolvedCount = getUnresolvedCount();
+      
+      // Show error notification at bottom-right
+      if (window.showToast) {
+        window.showToast(
+          `Cannot select segmentation for validation. ${unresolvedCount} review thread${unresolvedCount === 1 ? '' : 's'} pending. Please resolve all threads first.`,
+          'error'
+        );
+      }
+      return; // Stop here, don't proceed with selection
+    }
+
     if (isSelectedForValidation) {
       // Deselect if already selected
       setIsSelectedForValidation(false);
@@ -345,9 +420,28 @@ const Thumbnail = ({
     }
   };
 
-  // Handle modal confirmation
-  const handleModalConfirm = () => {
+  // Handle modal confirmation with threads check
+  const handleModalConfirm = async () => {
     if (!pendingSelection) return;
+    
+    // Check threads again before confirming
+    await loadThreads();
+    
+    if (!areAllThreadsResolved()) {
+      const unresolvedCount = getUnresolvedCount();
+      
+      // Show error notification and close modal
+      if (window.showToast) {
+        window.showToast(
+          `Cannot select segmentation for validation. ${unresolvedCount} review thread${unresolvedCount === 1 ? '' : 's'} pending. Please resolve all threads first.`,
+          'error'
+        );
+      }
+      
+      setShowSelectionModal(false);
+      setPendingSelection(null);
+      return;
+    }
     
     // User confirmed, switch to new SEG
     const timestamp = Date.now();

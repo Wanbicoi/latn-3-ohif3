@@ -460,6 +460,121 @@ const commandsModule = ({
       try {
         console.log('🔍 Starting segmentation store process:', { segmentationId, dataSource: !!dataSource });
 
+        // ✅ CHECK ROLE PERMISSION FIRST - Only annotators can save
+        console.log('🔐 Checking user role permission before saving...');
+        
+        // Get current user
+        const { data: userData } = await supabaseClient.auth.getUser();
+        const userId = userData?.user?.id;
+        
+        if (!userId) {
+          console.error('❌ No authenticated user found');
+          uiNotificationService.show({
+            title: 'Authentication Required',
+            message: 'Please log in to save segmentations',
+            type: 'error',
+            duration: 5000,
+          });
+          return;
+        }
+
+        try {
+          // Get user profile from _users table
+          const { data: userProfile } = await supabaseClient
+            .from('_users')
+            .select('full_name')
+            .eq('id', userId)
+            .single();
+
+          const displayName = userProfile?.full_name || 'User';
+
+          // Get user role using task assignment chain (like in ViewerHeader.tsx)
+          const urlParams = new URLSearchParams(window.location.search);
+          const taskId = urlParams.get('taskId');
+          
+          let userRole = 'Medical Professional'; // Default role
+          
+          if (taskId) {
+            try {
+              console.log(`🔍 Getting role for user ${userId} via task assignment ${taskId}`);
+              
+              // Step 1: Get task_id from _task_assignments
+              const { data: taskAssignmentData } = await supabaseClient
+                .from('_task_assignments')
+                .select('task_id')
+                .eq('id', taskId)
+                .single();
+              
+              if (taskAssignmentData?.task_id) {
+                // Step 2: Get project_id from _tasks
+                const { data: taskData } = await supabaseClient
+                  .from('_tasks')
+                  .select('project_id')
+                  .eq('id', taskAssignmentData.task_id)
+                  .single();
+                
+                if (taskData?.project_id) {
+                  // Step 3: Get role from _project_members and _roles
+                  const { data: memberData } = await supabaseClient
+                    .from('_project_members')
+                    .select(`
+                      role_id,
+                      _roles!_project_members_role_id_fkey (
+                        name,
+                        description
+                      )
+                    `)
+                    .eq('project_id', taskData.project_id)
+                    .eq('user_id', userId)
+                    .single();
+                  
+                  if (memberData?._roles) {
+                    const roleData = Array.isArray(memberData._roles) ? memberData._roles[0] : memberData._roles;
+                    userRole = roleData?.name || 'Medical Professional';
+                    console.log(`✅ Found role for user ${userId}: ${userRole}`);
+                  }
+                }
+              }
+            } catch (roleError) {
+              console.log('⚠️ Could not determine user role, using default');
+            }
+          }
+
+          // Check if user has annotator role
+          if (userRole.toLowerCase() !== 'annotator') {
+            console.error('❌ Permission denied - user role:', userRole);
+            
+                                     // Show concise permission denied notification
+            uiNotificationService.show({
+              title: '🚫 Save Permission Denied',
+              message: `Only "Annotator" role can save segmentations.
+                        Current User: ${displayName}
+                        Role: ${userRole}
+                        Please contact admin to update your role permissions.`,
+              type: 'error',
+              duration: 6000,
+            });
+            
+            // Return early - do not proceed with segmentation save
+            return;
+          }
+
+          console.log('✅ Role permission check passed - annotator can save');
+          
+        } catch (roleCheckError) {
+          console.error('❌ Role permission check error:', roleCheckError);
+          
+          uiNotificationService.show({
+            title: 'Permission Verification Failed',
+            message: `Cannot verify user role: ${roleCheckError.message}`,
+            type: 'error',
+            duration: 5000,
+          });
+          
+          // Return early - do not proceed with segmentation save
+          return;
+        }
+
         // Ask user for SeriesDescription (segmentation name)
         let SeriesDescription = SeriesDescriptionParam;
         if (!SeriesDescription) {
