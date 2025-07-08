@@ -168,11 +168,15 @@ export const SegmentationHeader: React.FC<{
           };
           
           // Dispatch event to update all other components
+          // Use longer delay to ensure all components have finished initializing
           setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-              detail: { newSelection: window.selectedSegmentationForApproval }
-            }));
-          }, 100); // Small delay to ensure all components are mounted
+            if (window.selectedSegmentationForApproval) {
+              window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
+                detail: { newSelection: window.selectedSegmentationForApproval }
+              }));
+              console.log('🔔 Dispatched approved segmentation selection event in header:', window.selectedSegmentationForApproval.label);
+            }
+          }, 500); // Longer delay to ensure all components are fully mounted and ready
         }
         
         console.log('✅ Found approved segmentation in header:', {
@@ -189,8 +193,21 @@ export const SegmentationHeader: React.FC<{
   // Check initial state on mount
   React.useEffect(() => {
     if (isApproved) {
-      // If approved, always show as selected
+      // If approved, always show as selected and update global state if needed
       setSelectedForValidation(segmentation.segmentationId);
+      
+      // Ensure global state reflects this approved SEG if not already set
+      if (!window.selectedSegmentationForApproval || !window.selectedSegmentationForApproval.isApproved) {
+        window.selectedSegmentationForApproval = {
+          segmentationId: segmentation.segmentationId,
+          seriesInstanceUID: segmentation.SeriesInstanceUID || segmentation.segmentationId,
+          label: segmentation.label,
+          timestamp: Date.now(),
+          isApproved: true,
+          approvedBy: approvedBy
+        };
+        console.log('🔄 Updated global state for approved SEG in header:', segmentation.label);
+      }
       return;
     }
     
@@ -201,7 +218,7 @@ export const SegmentationHeader: React.FC<{
       setSelectedForValidation(segmentation.segmentationId);
       setValidationTimestamp(currentlySelected.timestamp);
     }
-  }, [segmentation.segmentationId, isApproved]);
+  }, [segmentation.segmentationId, isApproved, segmentation.label, approvedBy]);
 
   // Listen for global segmentation selection changes
   React.useEffect(() => {
@@ -209,12 +226,14 @@ export const SegmentationHeader: React.FC<{
       const { newSelection } = event.detail;
       
       if (isApproved) {
-        // If this SEG is approved, don't change its selection state
+        // If this SEG is approved, always keep it selected and don't change its state
+        setSelectedForValidation(segmentation.segmentationId);
+        console.log('🔒 Keeping approved SEG selected in header:', segmentation.label);
         return;
       }
       
       if (newSelection === null) {
-        // Clear all selections
+        // Clear all non-approved selections
         setSelectedForValidation(null);
         setValidationTimestamp(null);
       } else {
@@ -223,6 +242,7 @@ export const SegmentationHeader: React.FC<{
         if (isCurrentlySelected) {
           setSelectedForValidation(segmentation.segmentationId);
           setValidationTimestamp(newSelection.timestamp);
+          console.log('🎯 Updated selection state in header for:', segmentation.label);
         } else {
           setSelectedForValidation(null);
           setValidationTimestamp(null);
@@ -235,7 +255,24 @@ export const SegmentationHeader: React.FC<{
     return () => {
       window.removeEventListener('segmentationSelectionChanged', handleSelectionChange);
     };
-  }, [segmentation.segmentationId, isApproved]);
+  }, [segmentation.segmentationId, isApproved, segmentation.label]);
+
+  // Listen for task completion events to disable interactions
+  React.useEffect(() => {
+    const handleTaskCompleted = (event: CustomEvent) => {
+      const { isCompleted } = event.detail;
+      if (isCompleted) {
+        // Task is completed, disable all interactions
+        console.log('🔒 Task completed - disabling segmentation interactions for:', segmentation.label);
+      }
+    };
+
+    window.addEventListener('taskCompleted', handleTaskCompleted as EventListener);
+    
+    return () => {
+      window.removeEventListener('taskCompleted', handleTaskCompleted as EventListener);
+    };
+  }, []);
 
   if (!segmentation) {
     return null;
@@ -244,6 +281,14 @@ export const SegmentationHeader: React.FC<{
   const isCurrentlySelected = selectedForValidation === segmentation.segmentationId;
 
   const handleClinicalValidation = async () => {
+    // Check if task is completed first
+    if (window.taskCompletionStatus?.isCompleted) {
+      if (window.showToast) {
+        window.showToast('This task has been completed and locked. No further modifications are allowed.', 'error');
+      }
+      return;
+    }
+
     // If already approved, show information instead of allowing change
     if (isApproved) {
       if (window.showToast) {
@@ -448,7 +493,7 @@ export const SegmentationHeader: React.FC<{
   return (
     <div className={`text-foreground flex h-8 w-full items-center justify-between transition-all duration-300 ${
       isCurrentlySelected 
-        ? 'bg-green-500/20 border border-green-500/50 rounded-md px-2 shadow-lg shadow-green-500/20' 
+        ? 'bg-green-500/20 border border-green-500/50 rounded-md px-2 shadow-lg shadow-green-500/30' 
         : ''
     }`}>
       <div className="flex items-center space-x-1">
@@ -538,18 +583,12 @@ export const SegmentationHeader: React.FC<{
           </DropdownMenuContent>
         </DropdownMenu>
         <div className={`pl-1.5 font-medium ${
-          isCurrentlySelected 
-            ? isApproved ? 'text-emerald-300' : 'text-green-300' 
-            : ''
+          isCurrentlySelected ? 'text-green-300' : ''
         }`}>
           {segmentation.label}
           {isCurrentlySelected && (
-            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-              isApproved 
-                ? 'bg-emerald-500/40 text-emerald-200' 
-                : 'bg-green-500/30 text-green-200'
-            }`}>
-              {isApproved ? `Approved by ${approvedBy}` : 'Selected for Validation'}
+            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-500/40 text-green-200">
+              {isApproved ? `🔒 Approved by ${approvedBy}` : 'Selected for Validation'}
             </span>
           )}
         </div>
@@ -564,9 +603,7 @@ export const SegmentationHeader: React.FC<{
               onClick={handleClinicalValidation}
               className={`transition-all duration-300 ${
                 isCurrentlySelected 
-                  ? isApproved
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md border-emerald-500' 
-                    : 'bg-green-600 hover:bg-green-700 text-white shadow-md border-green-500'
+                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-md border-green-500'
                   : 'hover:bg-green-600/20 hover:text-green-300 border border-green-600/30'
               }`}
             >
@@ -599,8 +636,8 @@ export const SegmentationHeader: React.FC<{
           </TooltipTrigger>
           <TooltipContent className="max-w-64">
             <div className="text-sm">
-              <div className={`font-semibold mb-1 ${isApproved ? 'text-emerald-300' : ''}`}>
-                {isApproved ? 'Approved for Clinical Use' : 'Clinical Validation Selection'}
+              <div className="font-semibold mb-1 text-green-300">
+                {isApproved ? '🔒 Approved for Clinical Use' : 'Clinical Validation Selection'}
               </div>
               <p className="text-xs text-gray-300">
                 {isApproved
@@ -616,7 +653,7 @@ export const SegmentationHeader: React.FC<{
                 </div>
               )}
               {isApproved && approvedAt && (
-                <div className="text-xs text-emerald-300 mt-1 pt-1 border-t border-gray-600">
+                <div className="text-xs text-green-300 mt-1 pt-1 border-t border-gray-600">
                   Approved on: {new Date(approvedAt).toLocaleDateString()}
                 </div>
               )}

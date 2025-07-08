@@ -15,8 +15,15 @@ declare global {
       seriesInstanceUID: string;
       label: string;
       timestamp: number;
+      isApproved?: boolean;
+      approvedBy?: string;
     };
     showToast?: (message: string, type: 'success' | 'error') => void;
+    taskCompletionStatus?: {
+      isCompleted: boolean;
+      completedBy?: string;
+      completedAt?: string;
+    };
   }
 }
 
@@ -166,6 +173,49 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   const [isSubmittingApproval, setIsSubmittingApproval] = React.useState(false);
   const [threads, setThreads] = React.useState([]);
   const [isLoadingThreads, setIsLoadingThreads] = React.useState(false);
+  // Add task completion state
+  const [isTaskCompleted, setIsTaskCompleted] = React.useState(false);
+  const [completedBy, setCompletedBy] = React.useState<string | null>(null);
+  const [completedAt, setCompletedAt] = React.useState<string | null>(null);
+
+  // Load task completion status
+  const loadTaskStatus = async () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const taskId = urlParams.get('taskId');
+      
+      if (!taskId) return;
+
+      const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+      const client = createClient(supabaseUrl, supabaseKey, {
+        db: { schema: 'public_v2' }
+      });
+
+      // Check task status from task_assignment_segmentations view
+      const { data: taskData } = await client
+        .from('task_assignment_segmentations')
+        .select('*')
+        .eq('task_assignment_id', taskId)
+        .eq('is_approved', true)
+        .limit(1);
+
+      if (taskData && taskData.length > 0) {
+        setIsTaskCompleted(true);
+        setCompletedBy(taskData[0].user_full_name);
+        setCompletedAt(taskData[0].created_at);
+        
+        // Update global state for other components
+        window.taskCompletionStatus = {
+          isCompleted: true,
+          completedBy: taskData[0].user_full_name,
+          completedAt: taskData[0].created_at
+        };
+      }
+    } catch (error) {
+      console.error('Error loading task status:', error);
+    }
+  };
 
   // Load comments/threads for current task
   const loadThreads = async () => {
@@ -207,12 +257,14 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
 
   React.useEffect(() => {
     loadThreads();
+    loadTaskStatus();
   }, []);
 
   // Refresh when triggered from parent
   React.useEffect(() => {
     if (refreshTrigger) {
       loadThreads();
+      loadTaskStatus();
     }
   }, [refreshTrigger]);
 
@@ -226,7 +278,138 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   };
 
   const handleApprove = async () => {
-    if (!areAllThreadsResolved() || isSubmittingApproval) return;
+    if (!areAllThreadsResolved() || isSubmittingApproval || isTaskCompleted) return;
+    
+    // Get selected segmentation info for confirmation
+    const selectedSegmentation = window.selectedSegmentationForApproval;
+    
+    if (!selectedSegmentation) {
+      showToast('Please select a segmentation for clinical validation first', 'error');
+      return;
+    }
+
+    // Show professional confirmation dialog
+    const confirmed = await new Promise((resolve) => {
+      const dialogOverlay = document.createElement('div');
+      dialogOverlay.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm';
+      
+      dialogOverlay.innerHTML = `
+        <div class="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 max-w-lg mx-4 w-full transform transition-all duration-300 scale-100">
+          <!-- Header -->
+          <div class="text-center p-6 pb-4">
+            <div class="flex items-center justify-center mb-4">
+              <div class="bg-amber-100 dark:bg-amber-900/30 rounded-full p-4">
+                <svg class="w-8 h-8 text-amber-600 dark:text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">
+              🔒 Final Approval Confirmation
+            </h2>
+            <p class="text-slate-300 text-sm">
+              This action will permanently approve and lock the task
+            </p>
+          </div>
+
+          <!-- Content -->
+          <div class="px-6 pb-2">
+            <div class="space-y-4">
+              <!-- Selected Segmentation Info -->
+              <div class="bg-emerald-900/30 rounded-lg p-4 border border-emerald-600/50">
+                <div class="flex items-center gap-3">
+                  <div class="w-4 h-4 bg-emerald-500 rounded-full flex-shrink-0"></div>
+                  <div>
+                    <div class="text-sm text-emerald-300 mb-1 font-semibold">Selected Segmentation</div>
+                    <div class="text-white font-medium">${selectedSegmentation.label}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Warning Box -->
+              <div class="bg-red-900/30 border border-red-500/50 rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                  <svg class="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                  </svg>
+                  <div>
+                    <p class="text-red-200 font-semibold mb-2">⚠️ Critical Warning</p>
+                    <ul class="text-sm text-red-300 space-y-1">
+                      <li>• Task will be permanently approved and completed</li>
+                      <li>• Selected segmentation will be locked from further editing</li>
+                      <li>• No modifications will be possible after approval</li>
+                      <li>• Comments section will be disabled</li>
+                      <li>• This action cannot be undone</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Confirmation Question -->
+              <div class="text-center py-3">
+                <p class="text-slate-200 font-semibold text-lg mb-2">
+                  Are you absolutely certain you want to approve this task?
+                </p>
+                <p class="text-sm text-slate-400">
+                  Please verify that all review requirements have been met and the segmentation is clinically accurate
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-3 p-6 pt-4 border-t border-slate-700">
+            <button 
+              id="cancel-approval" 
+              class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white border border-slate-600 rounded-xl px-4 py-3 font-medium transition-all duration-200"
+            >
+              <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Cancel
+            </button>
+            <button 
+              id="confirm-approval" 
+              class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-4 py-3 transition-all duration-200 hover:shadow-lg"
+            >
+              <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Approve & Lock Task
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Add click handlers
+      const cancelBtn = dialogOverlay.querySelector('#cancel-approval');
+      const confirmBtn = dialogOverlay.querySelector('#confirm-approval');
+      
+      cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(dialogOverlay);
+        resolve(false);
+      });
+      
+      confirmBtn.addEventListener('click', () => {
+        document.body.removeChild(dialogOverlay);
+        resolve(true);
+      });
+
+      // Close on overlay click
+      dialogOverlay.addEventListener('click', (e) => {
+        if (e.target === dialogOverlay) {
+          document.body.removeChild(dialogOverlay);
+          resolve(false);
+        }
+      });
+
+      document.body.appendChild(dialogOverlay);
+    });
+
+    if (!confirmed) {
+      showToast('Approval cancelled by user', 'success');
+      return;
+    }
     
     setIsSubmittingApproval(true);
     
@@ -245,14 +428,6 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
         db: { schema: 'public_v2' }
       });
 
-      // Get selected segmentation from global state
-      const selectedSegmentation = window.selectedSegmentationForApproval;
-      
-      if (!selectedSegmentation) {
-        showToast('Please select a segmentation for clinical validation first', 'error');
-        return;
-      }
-
       console.log('🎯 Approving task with selected segmentation:', {
         taskId,
         segmentation: selectedSegmentation.label,
@@ -267,9 +442,42 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
       if (error) {
         showToast(`Approval failed: ${error.message}`, 'error');
       } else {
-        showToast('Task approved successfully! 🎉', 'success');
+        showToast('🎉 Task approved successfully! Segmentation is now locked and finalized.', 'success');
+        
+        // Update task completion status
+        setIsTaskCompleted(true);
+        setCompletedBy('Current User');
+        setCompletedAt(new Date().toISOString());
+        
+        // Update global state
+        window.taskCompletionStatus = {
+          isCompleted: true,
+          completedBy: 'Current User',
+          completedAt: new Date().toISOString()
+        };
+        
         // Refresh threads after approval
         await loadThreads();
+        
+        // Update global state to reflect approved status
+        if (window.selectedSegmentationForApproval) {
+          window.selectedSegmentationForApproval.isApproved = true;
+          window.selectedSegmentationForApproval.approvedBy = 'Current User';
+          
+          // Dispatch event to update all components
+          window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
+            detail: { newSelection: window.selectedSegmentationForApproval }
+          }));
+          
+          // Dispatch task completion event
+          window.dispatchEvent(new CustomEvent('taskCompleted', {
+            detail: { 
+              isCompleted: true,
+              completedBy: 'Current User',
+              completedAt: new Date().toISOString()
+            }
+          }));
+        }
       }
     } catch (error) {
       console.error('Approval error:', error);
@@ -280,6 +488,7 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   };
 
   const getButtonText = () => {
+    if (isTaskCompleted) return `Completed by ${completedBy}`;
     if (isLoadingThreads) return 'Loading...';
     if (threads.length === 0) return 'No Threads';
     if (areAllThreadsResolved()) {
@@ -294,6 +503,7 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   };
 
   const getButtonState = () => {
+    if (isTaskCompleted) return 'completed';
     if (isLoadingThreads || threads.length === 0 || !areAllThreadsResolved()) {
       return 'disabled';
     }
@@ -305,6 +515,7 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   };
 
   const getTooltipText = () => {
+    if (isTaskCompleted) return `Task completed by ${completedBy}${completedAt ? ` on ${new Date(completedAt).toLocaleDateString()}` : ''}`;
     if (isLoadingThreads) return 'Loading...';
     if (threads.length === 0) return 'No threads yet';
     if (areAllThreadsResolved()) {
@@ -324,15 +535,17 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
     <div className="relative group">
       <button
         onClick={handleApprove}
-        disabled={buttonState === 'disabled' || isSubmittingApproval}
+        disabled={buttonState === 'disabled' || buttonState === 'completed' || isSubmittingApproval}
         className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 backdrop-blur-sm border font-medium text-sm shadow-lg hover:shadow-xl ${
-          buttonState === 'ready' 
-            ? 'bg-green-600/80 hover:bg-green-600 text-white border-green-500/50 hover:scale-105' 
-            : buttonState === 'needs-selection'
-              ? 'bg-amber-600/50 text-amber-200 border-amber-500/30 cursor-not-allowed opacity-80'
-              : threads.length === 0
-                ? 'bg-orange-500/50 text-orange-200 border-orange-400/30 cursor-not-allowed opacity-80'
-                : 'bg-blue-500/50 text-blue-200 border-blue-400/30 cursor-not-allowed opacity-80'
+          buttonState === 'completed'
+            ? 'bg-gray-600/80 text-gray-300 border-gray-500/50 cursor-not-allowed opacity-90'
+            : buttonState === 'ready' 
+              ? 'bg-green-600/80 hover:bg-green-600 text-white border-green-500/50 hover:scale-105' 
+              : buttonState === 'needs-selection'
+                ? 'bg-amber-600/50 text-amber-200 border-amber-500/30 cursor-not-allowed opacity-80'
+                : threads.length === 0
+                  ? 'bg-orange-500/50 text-orange-200 border-orange-400/30 cursor-not-allowed opacity-80'
+                  : 'bg-blue-500/50 text-blue-200 border-blue-400/30 cursor-not-allowed opacity-80'
         }`}
       >
         {/* Icon */}
@@ -341,6 +554,10 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
             <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+          ) : buttonState === 'completed' ? (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
             </svg>
           ) : threads.length === 0 ? (
             <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
@@ -359,8 +576,6 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
         <span className="whitespace-nowrap">
           {isSubmittingApproval ? 'Approving...' : getButtonText()}
         </span>
-        
-
       </button>
 
       {/* Simple Tooltip */}
@@ -755,6 +970,116 @@ const UserAccountHeaderOHIF = ({ refreshTrigger }: { refreshTrigger?: number }) 
   );
 };
 
+// Add Completion Ribbon Component
+const CompletionRibbon = () => {
+  const [isTaskCompleted, setIsTaskCompleted] = React.useState(false);
+  const [completedBy, setCompletedBy] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Check initial state from global
+    if (window.taskCompletionStatus?.isCompleted) {
+      setIsTaskCompleted(true);
+      setCompletedBy(window.taskCompletionStatus.completedBy);
+    }
+
+    // Check from URL params on reload
+    const checkTaskCompletionFromURL = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const taskId = urlParams.get('taskId');
+        
+        if (!taskId) return;
+
+        const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+        const client = createClient(supabaseUrl, supabaseKey, {
+          db: { schema: 'public_v2' }
+        });
+
+        // Check if task has any approved segmentation in _tasks.segmentation_ids
+        const { data: taskData } = await client
+          .from('_tasks')
+          .select('segmentation_ids')
+          .eq('id', (await client
+            .from('_task_assignments')
+            .select('task_id')
+            .eq('id', taskId)
+            .single()
+          ).data?.task_id)
+          .single();
+
+        if (taskData?.segmentation_ids && Array.isArray(taskData.segmentation_ids)) {
+          // Check if any segmentation has is_approved: true
+          const hasApprovedSeg = taskData.segmentation_ids.some(seg => seg.is_approved === true);
+          
+          if (hasApprovedSeg) {
+            setIsTaskCompleted(true);
+            setCompletedBy('System User');
+            
+            // Update global state
+            window.taskCompletionStatus = {
+              isCompleted: true,
+              completedBy: 'System User',
+              completedAt: new Date().toISOString()
+            };
+          }
+        }
+      } catch (error) {
+        console.error('Error checking task completion from URL:', error);
+      }
+    };
+
+    checkTaskCompletionFromURL();
+
+    // Listen for task completion events
+    const handleTaskCompleted = (event: CustomEvent) => {
+      const { isCompleted, completedBy } = event.detail;
+      setIsTaskCompleted(isCompleted);
+      setCompletedBy(completedBy);
+    };
+
+    window.addEventListener('taskCompleted', handleTaskCompleted as EventListener);
+    
+    return () => {
+      window.removeEventListener('taskCompleted', handleTaskCompleted as EventListener);
+    };
+  }, []);
+
+  if (!isTaskCompleted) return null;
+
+  return (
+    <div className="fixed top-0 left-0 w-full h-full z-[10000] pointer-events-none overflow-hidden">
+      {/* Small ribbon in top-left corner */}
+      <div 
+        className="absolute transform -rotate-45 flex items-center justify-center"
+        style={{
+          width: '200px',
+          height: '50px',
+          top: '30px',
+          left: '-50px',
+          background: 'linear-gradient(135deg, #10b981, #34d399)',
+          boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+          opacity: 0.95
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+          </svg>
+          <span 
+            className="text-white font-bold text-xl tracking-wider"
+            style={{
+              textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
+            }}
+          >
+            APPROVED
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main ViewerHeader Component wrapped with AccessGuard
 function ViewerHeaderContent({
   servicesManager,
@@ -800,6 +1125,9 @@ function ViewerHeaderContent({
 
   return (
     <>
+      {/* Add Completion Ribbon */}
+      <CompletionRibbon />
+      
       <div 
         className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-2xl"
         style={{ height: '64px' }}
@@ -907,9 +1235,9 @@ function ViewerHeaderContent({
                 title="Open task comments and discussion"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd"/>
+                  <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd"/>
                 </svg>
-                Comments
+                <span>Comments</span>
               </button>
               
               <ApproveButton refreshTrigger={refreshTrigger} showToast={showToast} />

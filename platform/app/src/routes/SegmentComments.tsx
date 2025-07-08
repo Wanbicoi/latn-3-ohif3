@@ -53,6 +53,17 @@ interface Toast {
   duration?: number;
 }
 
+// Global type for task completion status
+declare global {
+  interface Window {
+    taskCompletionStatus?: {
+      isCompleted: boolean;
+      completedBy: string;
+      completedAt: string;
+    };
+  }
+}
+
 const SegmentComments: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -65,6 +76,11 @@ const SegmentComments: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'resolved'>('all');
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'failed' | 'offline'>('unknown');
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  
+  // Task completion state
+  const [isTaskCompleted, setIsTaskCompleted] = useState(false);
+  const [completedBy, setCompletedBy] = useState<string | null>(null);
+  const [completedAt, setCompletedAt] = useState<string | null>(null);
   // Note: projectId is now resolved dynamically via task assignment chain
   const commentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -434,6 +450,7 @@ const SegmentComments: React.FC = () => {
 
   useEffect(() => {
     loadComments();
+    loadTaskStatus();
   }, [taskId]);
 
   // Load resolved tooltips when comments change
@@ -462,6 +479,13 @@ const SegmentComments: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
+    
+    // Prevent submission if task is completed
+    if (isTaskCompleted) {
+      showError('Task Completed', 'This task has been completed and locked. Comments are read-only.');
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -872,6 +896,7 @@ const SegmentComments: React.FC = () => {
 
   // Enhanced Threading and Reply System
   const handleReply = (commentId: string) => {
+    if (isTaskCompleted) return; // Prevent reply mode when task is completed
     setReplyMode(prev => ({ ...prev, [commentId]: !prev[commentId] }));
     setReplyTexts(prev => ({ ...prev, [commentId]: prev[commentId] || '' }));
   };
@@ -880,6 +905,12 @@ const SegmentComments: React.FC = () => {
     e.preventDefault();
     const replyText = replyTexts[parentCommentId];
     if (!replyText?.trim() || !user?.id || isSubmittingReply[parentCommentId]) return;
+    
+    // Prevent reply submission if task is completed
+    if (isTaskCompleted) {
+      showError('Task Completed', 'This task has been completed and locked. Comments are read-only.');
+      return;
+    }
 
     setIsSubmittingReply(prev => ({ ...prev, [parentCommentId]: true }));
 
@@ -1209,6 +1240,60 @@ const SegmentComments: React.FC = () => {
     
     return () => {
       document.body.classList.remove('medical-interface', 'comment-page-body');
+    };
+  }, []);
+
+  // Load task completion status
+  const loadTaskStatus = async () => {
+    try {
+      // Check global state first
+      if (window.taskCompletionStatus?.isCompleted) {
+        setIsTaskCompleted(true);
+        setCompletedBy(window.taskCompletionStatus.completedBy);
+        setCompletedAt(window.taskCompletionStatus.completedAt);
+        return;
+      }
+
+      if (!taskId) return;
+
+      // Check database for task completion
+      const { data: taskData } = await supabaseClient
+        .from('task_assignment_segmentations')
+        .select('*')
+        .eq('task_assignment_id', taskId)
+        .eq('is_approved', true)
+        .limit(1);
+
+      if (taskData && taskData.length > 0) {
+        setIsTaskCompleted(true);
+        setCompletedBy(taskData[0].user_full_name);
+        setCompletedAt(taskData[0].created_at);
+        
+        // Update global state
+        window.taskCompletionStatus = {
+          isCompleted: true,
+          completedBy: taskData[0].user_full_name,
+          completedAt: taskData[0].created_at
+        };
+      }
+    } catch (error) {
+      console.error('Error loading task status:', error);
+    }
+  };
+
+  // Listen for task completion events
+  useEffect(() => {
+    const handleTaskCompleted = (event: CustomEvent) => {
+      const { isCompleted, completedBy, completedAt } = event.detail;
+      setIsTaskCompleted(isCompleted);
+      setCompletedBy(completedBy);
+      setCompletedAt(completedAt);
+    };
+
+    window.addEventListener('taskCompleted', handleTaskCompleted as EventListener);
+    
+    return () => {
+      window.removeEventListener('taskCompleted', handleTaskCompleted as EventListener);
     };
   }, []);
 
@@ -1635,6 +1720,27 @@ const SegmentComments: React.FC = () => {
                           </div>
                         </div>
                         
+                        {/* Task Completion Banner */}
+                        {isTaskCompleted && (
+                          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-green-800">Task Completed</div>
+                                <div className="text-sm text-green-700">
+                                  This task was completed by {completedBy} 
+                                  {completedAt && ` on ${new Date(completedAt).toLocaleDateString()}`}. 
+                                  Comments are now read-only.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
                         <form onSubmit={handleSubmit} className="space-y-4">
                           <div>
                             <textarea
@@ -1642,10 +1748,14 @@ const SegmentComments: React.FC = () => {
                               value={newComment}
                               onChange={(e) => setNewComment(e.target.value)}
                               onKeyDown={handleKeyDown}
-                              placeholder={`Add your clinical assessment for ... (Press Enter to send, Shift+Enter for new line)`}
-                              className="main-comment-textarea w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm resize-vertical min-h-[100px]"
+                              placeholder={isTaskCompleted ? 'This task is completed - comments are read-only' : `Add your clinical assessment for ... (Press Enter to send, Shift+Enter for new line)`}
+                              className={`main-comment-textarea w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all text-sm resize-vertical min-h-[100px] ${
+                                isTaskCompleted 
+                                  ? 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed' 
+                                  : 'border-gray-300 focus:ring-blue-500'
+                              }`}
                               rows={4}
-                              disabled={isLoading}
+                              disabled={isLoading || isTaskCompleted}
                             />
                           </div>
                           
@@ -1683,8 +1793,12 @@ const SegmentComments: React.FC = () => {
                             
                             <button
                               type="submit"
-                              disabled={!newComment.trim() || isLoading}
-                              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-all duration-200 disabled:cursor-not-allowed flex items-center gap-2"
+                              disabled={!newComment.trim() || isLoading || isTaskCompleted}
+                              className={`px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 disabled:cursor-not-allowed flex items-center gap-2 ${
+                                isTaskCompleted 
+                                  ? 'bg-gray-400 cursor-not-allowed' 
+                                  : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300'
+                              }`}
                             >
                               {isLoading ? (
                                 <>
@@ -1693,6 +1807,13 @@ const SegmentComments: React.FC = () => {
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                                   </svg>
                                   Submitting...
+                                </>
+                              ) : isTaskCompleted ? (
+                                <>
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
+                                  </svg>
+                                  Task Completed
                                 </>
                               ) : (
                                 <>
@@ -1874,12 +1995,15 @@ const SegmentComments: React.FC = () => {
                                     
                                     <button 
                                       onClick={() => handleReply(comment.id)}
-                                      className="comment-action-button reply-button"
+                                      disabled={isTaskCompleted}
+                                      className={`comment-action-button reply-button ${
+                                        isTaskCompleted ? 'opacity-50 cursor-not-allowed' : ''
+                                      }`}
                                     >
                                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                         <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd"/>
                                       </svg>
-                                      Reply
+                                      {isTaskCompleted ? 'Locked' : 'Reply'}
                                     </button>
                                     
                                     {/* Enhanced Emoji Picker - Discord/GitLab Style */}
@@ -1989,9 +2113,14 @@ const SegmentComments: React.FC = () => {
                                                 }
                                               }
                                             }}
-                                            placeholder="Write a reply... (Press Enter to send, Shift+Enter for new line)"
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            placeholder={isTaskCompleted ? 'Task completed - replies are read-only' : "Write a reply... (Press Enter to send, Shift+Enter for new line)"}
+                                            className={`flex-1 px-3 py-2 border rounded-md text-sm resize-none focus:ring-2 focus:border-transparent ${
+                                              isTaskCompleted 
+                                                ? 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed' 
+                                                : 'border-gray-300 focus:ring-blue-500'
+                                            }`}
                                             rows={3}
+                                            disabled={isTaskCompleted}
                                           />
                                         </div>
                                         <div className="flex items-center justify-end gap-2 pl-11">
@@ -2004,10 +2133,14 @@ const SegmentComments: React.FC = () => {
                                           </button>
                                           <button
                                             type="submit"
-                                            disabled={!replyTexts[comment.id]?.trim() || isSubmittingReply[comment.id]}
-                                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm rounded-md font-medium"
+                                            disabled={!replyTexts[comment.id]?.trim() || isSubmittingReply[comment.id] || isTaskCompleted}
+                                            className={`px-4 py-1.5 text-white text-sm rounded-md font-medium ${
+                                              isTaskCompleted 
+                                                ? 'bg-gray-400 cursor-not-allowed' 
+                                                : 'bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300'
+                                            }`}
                                           >
-                                            {isSubmittingReply[comment.id] ? 'Sending...' : 'Reply'}
+                                            {isSubmittingReply[comment.id] ? 'Sending...' : isTaskCompleted ? 'Locked' : 'Reply'}
                                           </button>
                                         </div>
                                       </form>

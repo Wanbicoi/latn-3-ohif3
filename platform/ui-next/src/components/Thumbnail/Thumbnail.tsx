@@ -32,6 +32,11 @@ declare global {
       approvedBy?: string;
     };
     showToast?: (message: string, type: 'success' | 'error') => void;
+    taskCompletionStatus?: {
+      isCompleted: boolean;
+      completedBy?: string;
+      completedAt?: string;
+    };
   }
 }
 
@@ -142,11 +147,15 @@ const Thumbnail = ({
           };
           
           // Dispatch event to update all other thumbnails/components
+          // Use longer delay to ensure all thumbnails have finished initializing
           setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-              detail: { newSelection: window.selectedSegmentationForApproval }
-            }));
-          }, 100); // Small delay to ensure all components are mounted
+            if (window.selectedSegmentationForApproval) {
+              window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
+                detail: { newSelection: window.selectedSegmentationForApproval }
+              }));
+              console.log('🔔 Dispatched approved segmentation selection event:', window.selectedSegmentationForApproval.label);
+            }
+          }, 500); // Longer delay to ensure all components are fully mounted and ready
         }
         
         console.log('✅ Found approved segmentation:', {
@@ -184,10 +193,27 @@ const Thumbnail = ({
     // Add delay to avoid race condition with multiple thumbnails loading simultaneously
     const timer = setTimeout(() => {
       loadApprovedSegmentation();
-    }, Math.random() * 200); // Random delay 0-200ms to stagger loads
+    }, Math.random() * 300 + 100); // Random delay 100-400ms to stagger loads and ensure proper initialization
     
     return () => clearTimeout(timer);
   }, [seriesInstanceUID, displaySetInstanceUID]); // Add dependencies to ensure reload when data changes
+
+  // Listen for task completion events to disable interactions
+  useEffect(() => {
+    const handleTaskCompleted = (event: CustomEvent) => {
+      const { isCompleted } = event.detail;
+      if (isCompleted) {
+        // Task is completed, disable all interactions
+        console.log('🔒 Task completed - disabling SEG interactions for:', displaySetInstanceUID);
+      }
+    };
+
+    window.addEventListener('taskCompleted', handleTaskCompleted as EventListener);
+    
+    return () => {
+      window.removeEventListener('taskCompleted', handleTaskCompleted as EventListener);
+    };
+  }, []);
 
   // Function to load and check threads status
   const loadThreads = async () => {
@@ -241,8 +267,21 @@ const Thumbnail = ({
   // Check if this SEG is currently selected for validation
   useEffect(() => {
     if (isApproved) {
-      // If approved, always show as selected
+      // If approved, always show as selected and update global state if needed
       setIsSelectedForValidation(true);
+      
+      // Ensure global state reflects this approved SEG if not already set
+      if (!window.selectedSegmentationForApproval || !window.selectedSegmentationForApproval.isApproved) {
+        window.selectedSegmentationForApproval = {
+          segmentationId: displaySetInstanceUID,
+          seriesInstanceUID: seriesInstanceUID || displaySetInstanceUID,
+          label: description || `SEG S${seriesNumber}`,
+          timestamp: Date.now(),
+          isApproved: true,
+          approvedBy: approvedBy
+        };
+        console.log('🔄 Updated global state for approved SEG:', description);
+      }
       return;
     }
     
@@ -250,7 +289,7 @@ const Thumbnail = ({
     const isCurrentlySelected = selectedSeg?.seriesInstanceUID === seriesInstanceUID || 
                                selectedSeg?.segmentationId === displaySetInstanceUID;
     setIsSelectedForValidation(isCurrentlySelected);
-  }, [seriesInstanceUID, displaySetInstanceUID, isApproved]);
+  }, [seriesInstanceUID, displaySetInstanceUID, isApproved, description, seriesNumber, approvedBy]);
 
   // Listen for global segmentation selection changes
   useEffect(() => {
@@ -258,17 +297,23 @@ const Thumbnail = ({
       const { newSelection } = event.detail;
       
       if (isApproved) {
-        // If this SEG is approved, don't change its selection state
+        // If this SEG is approved, always keep it selected and don't change its state
+        setIsSelectedForValidation(true);
+        console.log('🔒 Keeping approved SEG selected:', description);
         return;
       }
       
       if (newSelection === null) {
-        // Clear all selections
+        // Clear all non-approved selections
         setIsSelectedForValidation(false);
       } else {
         const isCurrentlySelected = newSelection?.seriesInstanceUID === seriesInstanceUID || 
                                    newSelection?.segmentationId === displaySetInstanceUID;
         setIsSelectedForValidation(isCurrentlySelected);
+        
+        if (isCurrentlySelected) {
+          console.log('🎯 Updated selection state for:', description);
+        }
       }
     };
 
@@ -277,7 +322,7 @@ const Thumbnail = ({
     return () => {
       window.removeEventListener('segmentationSelectionChanged', handleSelectionChange);
     };
-  }, [seriesInstanceUID, displaySetInstanceUID, isApproved]);
+  }, [seriesInstanceUID, displaySetInstanceUID, isApproved, description]);
 
   // TODO: We should wrap our thumbnail to create a "DraggableThumbnail", as
   // this will still allow for "drag", even if there is no drop target for the
@@ -449,6 +494,14 @@ const Thumbnail = ({
 
   // Handle clinical validation selection with threads check
   const handleClinicalValidation = async () => {
+    // Check if task is completed first
+    if (window.taskCompletionStatus?.isCompleted) {
+      if (window.showToast) {
+        window.showToast('This task has been completed and locked. No further modifications are allowed.', 'error');
+      }
+      return;
+    }
+    
     // If already approved, show information instead of allowing change
     if (isApproved) {
       if (window.showToast) {
@@ -837,6 +890,25 @@ const Thumbnail = ({
     }
   };
 
+  const handleThumbnailClick = () => {
+    // Check if task is completed first
+    if (window.taskCompletionStatus?.isCompleted) {
+      // Show professional notification that task is locked
+      if (window.showToast) {
+        window.showToast(
+          'This task has been approved and finalized. No further modifications are allowed.', 
+          'error'
+        );
+      }
+      return; // Prevent any further action
+    }
+
+    // Call the original onClick handler if available
+    if (onClick) {
+      onClick(displaySetInstanceUID);
+    }
+  };
+
   const renderThumbnailPreset = () => {
     return (
       <div
@@ -898,12 +970,12 @@ const Thumbnail = ({
                   </TooltipTrigger>
                   <TooltipContent side="left">
                     <div className="text-sm">
-                      <div className={`font-semibold ${isApproved ? 'text-emerald-300' : 'text-green-300'}`}>
-                        {isApproved ? 'Approved for Clinical Use' : 'Selected for Clinical Validation'}
+                      <div className="font-semibold text-green-300">
+                        {isApproved ? '🔒 Approved for Clinical Use' : 'Selected for Clinical Validation'}
                       </div>
                       <div className="text-xs text-gray-300 mt-1">
                         {isApproved 
-                          ? `Approved by ${approvedBy}${approvedAt ? ` on ${new Date(approvedAt).toLocaleDateString()}` : ''}`
+                          ? `Approved by ${approvedBy}${approvedAt ? ` on ${new Date(approvedAt).toLocaleDateString()}` : ''} - Cannot be modified`
                           : 'This segmentation will be used for task approval'
                         }
                       </div>
@@ -1126,11 +1198,7 @@ const Thumbnail = ({
           {modality === 'SEG' && isSelectedForValidation && (
             <Tooltip>
               <TooltipTrigger>
-                <div className={`text-white rounded-full p-1 shadow-lg ${
-                  isApproved 
-                    ? 'bg-emerald-600 shadow-emerald-500/30' 
-                    : 'bg-green-600 shadow-green-500/20 animate-pulse'
-                }`}>
+                <div className="text-white rounded-full p-1 shadow-lg bg-green-600 shadow-green-500/30">
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     {isApproved ? (
                       // Approved icon (crown/badge)
@@ -1144,12 +1212,12 @@ const Thumbnail = ({
               </TooltipTrigger>
               <TooltipContent side="left">
                 <div className="text-sm">
-                  <div className={`font-semibold ${isApproved ? 'text-emerald-300' : 'text-green-300'}`}>
-                    {isApproved ? 'Approved for Clinical Use' : 'Selected for Clinical Validation'}
+                  <div className="font-semibold text-green-300">
+                    {isApproved ? '🔒 Approved for Clinical Use' : 'Selected for Clinical Validation'}
                   </div>
                   <div className="text-xs text-gray-300 mt-1">
                     {isApproved 
-                      ? `Approved by ${approvedBy}${approvedAt ? ` on ${new Date(approvedAt).toLocaleDateString()}` : ''}`
+                      ? `Approved by ${approvedBy}${approvedAt ? ` on ${new Date(approvedAt).toLocaleDateString()}` : ''} - Cannot be modified`
                       : 'This segmentation will be used for task approval'
                     }
                   </div>
@@ -1305,12 +1373,9 @@ const Thumbnail = ({
         'bg-muted hover:bg-primary/30 group flex cursor-pointer select-none flex-col rounded outline-none transition-all duration-300',
         viewPreset === 'thumbnails' && 'h-[170px] w-[135px]',
         viewPreset === 'list' && 'col-span-2 h-[40px] w-[275px]',
-        // Highlight for clinical validation selection
-        modality === 'SEG' && isSelectedForValidation && (
-          isApproved 
-            ? 'ring-2 ring-emerald-500 ring-opacity-60 bg-emerald-500/15 border border-emerald-500/40 shadow-lg shadow-emerald-500/25'
-            : 'ring-2 ring-green-500 ring-opacity-50 bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/20'
-        )
+        // Highlight for clinical validation selection - use same green color for both approved and temporary
+        modality === 'SEG' && isSelectedForValidation && 
+          'ring-2 ring-green-500 ring-opacity-50 bg-green-500/20 border border-green-500/50 shadow-lg shadow-green-500/30'
       )}
       id={`thumbnail-${displaySetInstanceUID}`}
       data-cy={
@@ -1319,7 +1384,7 @@ const Thumbnail = ({
           : 'study-browser-thumbnail'
       }
       data-series={seriesNumber}
-      onClick={onClick}
+      onClick={handleThumbnailClick}
       onDoubleClick={onDoubleClick}
       onTouchEnd={handleTouchEnd}
       role="button"
