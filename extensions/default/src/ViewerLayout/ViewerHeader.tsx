@@ -996,33 +996,24 @@ const CompletionRibbon = () => {
           db: { schema: 'public_v2' }
         });
 
-        // Check if task has any approved segmentation in _tasks.segmentation_ids
+        // Check if task has any approved segmentation using the proper view
         const { data: taskData } = await client
-          .from('_tasks')
-          .select('segmentation_ids')
-          .eq('id', (await client
-            .from('_task_assignments')
-            .select('task_id')
-            .eq('id', taskId)
-            .single()
-          ).data?.task_id)
-          .single();
+          .from('task_assignment_segmentations')
+          .select('*')
+          .eq('task_assignment_id', taskId)
+          .eq('is_approved', true)
+          .limit(1);
 
-        if (taskData?.segmentation_ids && Array.isArray(taskData.segmentation_ids)) {
-          // Check if any segmentation has is_approved: true
-          const hasApprovedSeg = taskData.segmentation_ids.some(seg => seg.is_approved === true);
+        if (taskData && taskData.length > 0) {
+          setIsTaskCompleted(true);
+          setCompletedBy(taskData[0].user_full_name);
           
-          if (hasApprovedSeg) {
-            setIsTaskCompleted(true);
-            setCompletedBy('System User');
-            
-            // Update global state
-            window.taskCompletionStatus = {
-              isCompleted: true,
-              completedBy: 'System User',
-              completedAt: new Date().toISOString()
-            };
-          }
+          // Update global state
+          window.taskCompletionStatus = {
+            isCompleted: true,
+            completedBy: taskData[0].user_full_name,
+            completedAt: taskData[0].created_at
+          };
         }
       } catch (error) {
         console.error('Error checking task completion from URL:', error);

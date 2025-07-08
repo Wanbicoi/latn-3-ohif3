@@ -541,16 +541,18 @@ const commandsModule = ({
           }
 
           // Check if user has annotator role
-          if (userRole.toLowerCase() !== 'annotator') {
+          if (userRole.toLowerCase() !== 'annotator' && userRole.toLowerCase() !== 'project manager') {
             console.error('❌ Permission denied - user role:', userRole);
             
                                      // Show concise permission denied notification
             uiNotificationService.show({
               title: '🚫 Save Permission Denied',
-              message: `Only "Annotator" role can save segmentations.
-                        Current User: ${displayName}
-                        Role: ${userRole}
-                        Please contact admin to update your role permissions.`,
+              message: `Only "Annotator" or "Project Manager" role can save segmentations.
+
+              Current User: ${displayName}
+              Role: ${userRole}
+
+              Please contact admin to update your role permissions.`,
               type: 'error',
               duration: 6000,
             });
