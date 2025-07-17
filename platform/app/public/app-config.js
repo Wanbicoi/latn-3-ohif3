@@ -15,7 +15,7 @@ window.config = {
       id: '@ohif/cornerstoneOverlay',
       // Replace để xóa hết config cũ và tránh duplicate
       merge: 'Replace',
-      
+
       // Xóa hết thông tin ở topLeft để tránh trùng lặp
       topLeftItems: {
         id: 'cornerstoneOverlayTopLeft',
@@ -41,7 +41,7 @@ window.config = {
               formatDate(referenceInstance.StudyDate),
           },
           {
-            id: 'SeriesDescription', 
+            id: 'SeriesDescription',
             customizationType: 'ohif.overlayItem',
             label: '',
             title: 'Series description',
@@ -73,7 +73,7 @@ window.config = {
   investigationalUseDialog: {
     option: 'never',
   },
-  
+
   dataSources: [
     {
       namespace: '@ohif/extension-default.dataSourcesModule.dicomweb',
@@ -81,9 +81,9 @@ window.config = {
       configuration: {
         friendlyName: 'AWS S3 Static wado server',
         name: 'aws',
-        wadoUriRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
-        qidoRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
-        wadoRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
+        wadoUriRoot: 'http://35.223.3.190/datasource/dicom-web',
+        qidoRoot: 'http://35.223.3.190/datasource/dicom-web',
+        wadoRoot: 'http://35.223.3.190/datasource/dicom-web',
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',
@@ -101,10 +101,10 @@ window.config = {
       },
     },
   ],
-  
+
   httpErrorHandler: error => {
     console.warn(error.status);
   },
-  
+
   hotkeys: [],
-}; 
+};

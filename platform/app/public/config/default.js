@@ -2,13 +2,13 @@
 window.config = {
   routerBasename: '/ohif3',
   // whiteLabeling: {},
-  
+
   // Fix overlay positioning - Di chuyển thông tin xuống bottom-left và tránh duplicate
   customizationService: [
     {
       id: '@ohif/cornerstoneOverlay',
       merge: 'Replace',
-      
+
       // Xóa hết thông tin ở topLeft để tránh trùng lặp
       topLeftItems: {
         id: 'cornerstoneOverlayTopLeft',
@@ -16,7 +16,7 @@ window.config = {
       },
 
       topRightItems: {
-        id: 'cornerstoneOverlayTopRight', 
+        id: 'cornerstoneOverlayTopRight',
         items: [],
       },
 
@@ -34,7 +34,7 @@ window.config = {
               formatDate(referenceInstance.StudyDate),
           },
           {
-            id: 'SeriesDescription', 
+            id: 'SeriesDescription',
             customizationType: 'ohif.overlayItem',
             label: '',
             title: 'Series description',
@@ -52,7 +52,7 @@ window.config = {
             customizationType: 'ohif.overlayItem',
             label: 'Slice:',
             title: 'Instance/Slice Number',
-            condition: ({ instanceNumber, imageSliceData }) => 
+            condition: ({ instanceNumber, imageSliceData }) =>
               instanceNumber !== undefined || imageSliceData,
             contentF: ({ instanceNumber, imageSliceData }) => {
               const { imageIndex, numberOfSlices } = imageSliceData;
@@ -73,7 +73,7 @@ window.config = {
       },
     },
   ],
-  
+
   modesConfiguration: {
     '@ohif/mode-longitudinal': {
       hotkeys: [],
@@ -148,9 +148,9 @@ window.config = {
       configuration: {
         friendlyName: 'AWS S3 Static wado server',
         name: 'aws',
-        wadoUriRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
-        qidoRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
-        wadoRoot: 'https://latn-3.eastasia.cloudapp.azure.com/datasource/dicom-web',
+        wadoUriRoot: 'http://35.223.3.190/datasource/dicom-web',
+        qidoRoot: 'http://35.223.3.190/datasource/dicom-web',
+        wadoRoot: 'http://35.223.3.190/datasource/dicom-web',
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',

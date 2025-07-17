@@ -46,7 +46,6 @@ const { downloadDICOMData } = helpers;
 const commandsModule = ({
   servicesManager,
   extensionManager,
-
 }: Types.Extensions.ExtensionParams): Types.Extensions.CommandsModule => {
   const {
     segmentationService,
@@ -54,7 +53,7 @@ const commandsModule = ({
     displaySetService,
     viewportGridService,
     toolGroupService,
-    hangingProtocolService
+    hangingProtocolService,
   } = servicesManager.services as AppTypes.Services;
 
   const actions = {
@@ -72,7 +71,7 @@ const commandsModule = ({
         updatedViewports = hangingProtocolService.getViewportsRequireUpdate(
           viewportGridService.getActiveViewportId(),
           displaySet.displaySetInstanceUID,
-          false,
+          false
         );
       } catch (error) {
         console.warn(error);
@@ -258,7 +257,6 @@ const commandsModule = ({
 
       const { label } = segmentation;
       const SeriesDescription = label;
-      
 
       const generatedData = actions.generateSegmentation({
         segmentationId,
@@ -282,22 +280,25 @@ const commandsModule = ({
         const urlParams = new URLSearchParams(window.location.search);
         const taskId = urlParams.get('taskId'); // This is task_assignment_id
         const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
-        
+
         // Get current user
         const { data: userData } = await supabaseClient.auth.getUser();
         const authorId = userData?.user?.id;
-        
+
         if (taskId && authorId && naturalizedReport.SeriesInstanceUID) {
           console.log('🎯 Calling workflow_annotate_submit:', {
             task_assignment_id: taskId,
-            segmentation_id: naturalizedReport.SeriesInstanceUID
+            segmentation_id: naturalizedReport.SeriesInstanceUID,
           });
 
           // Call workflow function for label assignment (schema public_v2 already configured)
-          const { data: workflowData, error: workflowError } = await supabaseClient.rpc('workflow_annotate_submit', {
-            task_assignment_id: taskId,
-            segmentation_id: naturalizedReport.SeriesInstanceUID
-          });
+          const { data: workflowData, error: workflowError } = await supabaseClient.rpc(
+            'workflow_annotate_submit',
+            {
+              task_assignment_id: taskId,
+              segmentation_id: naturalizedReport.SeriesInstanceUID,
+            }
+          );
 
           if (workflowError) {
             console.error('❌ Workflow function failed:', workflowError);
@@ -315,27 +316,27 @@ const commandsModule = ({
             );
           }
         } else {
-                      console.warn('⚠️ Missing required parameters for workflow save:', {
-              taskId: !!taskId,
-              authorId: !!authorId,
-              seriesInstanceUID: !!naturalizedReport.SeriesInstanceUID
-            });
-            
-            toastService.info(
-              'Segmentation Saved',
-              'Segmentation saved to Orthanc (label assignment skipped)',
-              3000
-            );
-        }
-              } catch (error) {
-          console.error('❌ Save process failed:', error);
-          // Don't throw - DICOM save was successful
-          toastService.error(
-            'Label Assignment Error',
-            `Segmentation saved but label assignment failed: ${error.message || 'Unknown error'}`,
-            5000
+          console.warn('⚠️ Missing required parameters for workflow save:', {
+            taskId: !!taskId,
+            authorId: !!authorId,
+            seriesInstanceUID: !!naturalizedReport.SeriesInstanceUID,
+          });
+
+          toastService.info(
+            'Segmentation Saved',
+            'Segmentation saved to Orthanc (label assignment skipped)',
+            3000
           );
         }
+      } catch (error) {
+        console.error('❌ Save process failed:', error);
+        // Don't throw - DICOM save was successful
+        toastService.error(
+          'Label Assignment Error',
+          `Segmentation saved but label assignment failed: ${error.message || 'Unknown error'}`,
+          5000
+        );
+      }
 
       // The "Mode" route listens for DicomMetadataStore changes
       // When a new instance is added, it listens and
@@ -361,7 +362,7 @@ const commandsModule = ({
 
       if (!seriesInstanceUID) return;
 
-      const ORTHANC_SERVER_URL = 'https://latn-3.eastasia.cloudapp.azure.com/datasource';
+      const ORTHANC_SERVER_URL = 'http://35.223.3.190/datasource';
       const getOrthancSeriesUuidUrl = ORTHANC_SERVER_URL + '/tools/find';
       const findSeriesUUID = await fetch(getOrthancSeriesUuidUrl, {
         method: 'POST',

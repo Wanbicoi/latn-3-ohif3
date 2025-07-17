@@ -100,15 +100,16 @@ const Thumbnail = ({
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const taskId = urlParams.get('taskId');
-      
+
       if (!taskId) {
         return;
       }
 
       const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
-      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+      const supabaseKey =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
       const client = createClient(supabaseUrl, supabaseKey, {
-        db: { schema: 'public_v2' }
+        db: { schema: 'public_v2' },
       });
 
       // Get task segmentation info using the view
@@ -125,16 +126,17 @@ const Thumbnail = ({
         setIsApproved(true);
         setApprovedBy(segmentationData.user_full_name);
         setApprovedAt(segmentationData.created_at);
-        
+
         // Set as selected for validation since it's approved
         setIsSelectedForValidation(true);
-        
+
         // Check if global state is already set correctly to avoid race condition
         const currentGlobalSelection = window.selectedSegmentationForApproval;
-        const shouldUpdateGlobal = !currentGlobalSelection || 
+        const shouldUpdateGlobal =
+          !currentGlobalSelection ||
           currentGlobalSelection.segmentationId !== displaySetInstanceUID ||
           !currentGlobalSelection.isApproved;
-        
+
         if (shouldUpdateGlobal) {
           // Update global state to reflect approved status
           window.selectedSegmentationForApproval = {
@@ -143,25 +145,30 @@ const Thumbnail = ({
             label: description || `SEG S${seriesNumber}`,
             timestamp: Date.now(),
             isApproved: true,
-            approvedBy: segmentationData.user_full_name
+            approvedBy: segmentationData.user_full_name,
           };
-          
+
           // Dispatch event to update all other thumbnails/components
           // Use longer delay to ensure all thumbnails have finished initializing
           setTimeout(() => {
             if (window.selectedSegmentationForApproval) {
-              window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-                detail: { newSelection: window.selectedSegmentationForApproval }
-              }));
-              console.log('🔔 Dispatched approved segmentation selection event:', window.selectedSegmentationForApproval.label);
+              window.dispatchEvent(
+                new CustomEvent('segmentationSelectionChanged', {
+                  detail: { newSelection: window.selectedSegmentationForApproval },
+                })
+              );
+              console.log(
+                '🔔 Dispatched approved segmentation selection event:',
+                window.selectedSegmentationForApproval.label
+              );
             }
           }, 500); // Longer delay to ensure all components are fully mounted and ready
         }
-        
+
         console.log('✅ Found approved segmentation:', {
           segmentationId: seriesInstanceUID || displaySetInstanceUID,
           approvedBy: segmentationData.user_full_name,
-          approvedAt: segmentationData.created_at
+          approvedAt: segmentationData.created_at,
         });
       } else {
         // Check if any other SEG is approved for this task to prevent conflicts
@@ -175,7 +182,7 @@ const Thumbnail = ({
           // Another SEG is already approved, clear this selection if it exists
           const approvedSeg = otherApprovedSegs[0];
           console.log('ℹ️ Another SEG is already approved:', approvedSeg.segmentation_id);
-          
+
           // Clear this thumbnail if it was previously selected
           if (isSelectedForValidation && !isApproved) {
             setIsSelectedForValidation(false);
@@ -191,10 +198,13 @@ const Thumbnail = ({
   useEffect(() => {
     loadThreads();
     // Add delay to avoid race condition with multiple thumbnails loading simultaneously
-    const timer = setTimeout(() => {
-      loadApprovedSegmentation();
-    }, Math.random() * 300 + 100); // Random delay 100-400ms to stagger loads and ensure proper initialization
-    
+    const timer = setTimeout(
+      () => {
+        loadApprovedSegmentation();
+      },
+      Math.random() * 300 + 100
+    ); // Random delay 100-400ms to stagger loads and ensure proper initialization
+
     return () => clearTimeout(timer);
   }, [seriesInstanceUID, displaySetInstanceUID]); // Add dependencies to ensure reload when data changes
 
@@ -209,7 +219,7 @@ const Thumbnail = ({
     };
 
     window.addEventListener('taskCompleted', handleTaskCompleted as EventListener);
-    
+
     return () => {
       window.removeEventListener('taskCompleted', handleTaskCompleted as EventListener);
     };
@@ -219,19 +229,20 @@ const Thumbnail = ({
   const loadThreads = async () => {
     try {
       setIsLoadingThreads(true);
-      
+
       const urlParams = new URLSearchParams(window.location.search);
       const taskId = urlParams.get('taskId');
-      
+
       if (!taskId) {
         setThreads([]);
         return;
       }
 
       const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
-      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+      const supabaseKey =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
       const client = createClient(supabaseUrl, supabaseKey, {
-        db: { schema: 'public_v2' }
+        db: { schema: 'public_v2' },
       });
 
       const { data: commentsData } = await client
@@ -240,10 +251,10 @@ const Thumbnail = ({
         .eq('task_assignment_id', taskId);
 
       // Filter only parent comments (threads), not replies
-      const parentComments = (commentsData || []).filter(comment => 
-        !comment.data?.parent_comment_id
+      const parentComments = (commentsData || []).filter(
+        comment => !comment.data?.parent_comment_id
       );
-      
+
       setThreads(parentComments);
     } catch (error) {
       console.error('Error loading threads:', error);
@@ -269,48 +280,53 @@ const Thumbnail = ({
     if (isApproved) {
       // If approved, always show as selected and update global state if needed
       setIsSelectedForValidation(true);
-      
+
       // Ensure global state reflects this approved SEG if not already set
-      if (!window.selectedSegmentationForApproval || !window.selectedSegmentationForApproval.isApproved) {
+      if (
+        !window.selectedSegmentationForApproval ||
+        !window.selectedSegmentationForApproval.isApproved
+      ) {
         window.selectedSegmentationForApproval = {
           segmentationId: displaySetInstanceUID,
           seriesInstanceUID: seriesInstanceUID || displaySetInstanceUID,
           label: description || `SEG S${seriesNumber}`,
           timestamp: Date.now(),
           isApproved: true,
-          approvedBy: approvedBy
+          approvedBy: approvedBy,
         };
         console.log('🔄 Updated global state for approved SEG:', description);
       }
       return;
     }
-    
+
     const selectedSeg = window.selectedSegmentationForApproval;
-    const isCurrentlySelected = selectedSeg?.seriesInstanceUID === seriesInstanceUID || 
-                               selectedSeg?.segmentationId === displaySetInstanceUID;
+    const isCurrentlySelected =
+      selectedSeg?.seriesInstanceUID === seriesInstanceUID ||
+      selectedSeg?.segmentationId === displaySetInstanceUID;
     setIsSelectedForValidation(isCurrentlySelected);
   }, [seriesInstanceUID, displaySetInstanceUID, isApproved, description, seriesNumber, approvedBy]);
 
   // Listen for global segmentation selection changes
   useEffect(() => {
-    const handleSelectionChange = (event) => {
+    const handleSelectionChange = event => {
       const { newSelection } = event.detail;
-      
+
       if (isApproved) {
         // If this SEG is approved, always keep it selected and don't change its state
         setIsSelectedForValidation(true);
         console.log('🔒 Keeping approved SEG selected:', description);
         return;
       }
-      
+
       if (newSelection === null) {
         // Clear all non-approved selections
         setIsSelectedForValidation(false);
       } else {
-        const isCurrentlySelected = newSelection?.seriesInstanceUID === seriesInstanceUID || 
-                                   newSelection?.segmentationId === displaySetInstanceUID;
+        const isCurrentlySelected =
+          newSelection?.seriesInstanceUID === seriesInstanceUID ||
+          newSelection?.segmentationId === displaySetInstanceUID;
         setIsSelectedForValidation(isCurrentlySelected);
-        
+
         if (isCurrentlySelected) {
           console.log('🎯 Updated selection state for:', description);
         }
@@ -318,7 +334,7 @@ const Thumbnail = ({
     };
 
     window.addEventListener('segmentationSelectionChanged', handleSelectionChange);
-    
+
     return () => {
       window.removeEventListener('segmentationSelectionChanged', handleSelectionChange);
     };
@@ -343,7 +359,9 @@ const Thumbnail = ({
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const { data: { user } } = await supabaseClient.auth.getUser();
+        const {
+          data: { user },
+        } = await supabaseClient.auth.getUser();
         if (user?.id) {
           const { data: profileData, error } = await supabaseClient
             .from('hd_profile_list')
@@ -402,7 +420,7 @@ const Thumbnail = ({
       // Admin can delete directly - show beautiful confirmation dialog
       const dialogId = 'delete-segmentation-confirm';
       const { uiDialogService } = servicesManager.services;
-      
+
       uiDialogService.create({
         id: dialogId,
         centralize: true,
@@ -415,28 +433,30 @@ const Thumbnail = ({
             <div className="bg-primary-dark p-6 text-white">
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
-                    <Icons.Trash className="w-6 h-6 text-red-400" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20">
+                    <Icons.Trash className="h-6 w-6 text-red-400" />
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p className="text-lg font-semibold text-white mb-3">
+                  <p className="mb-3 text-lg font-semibold text-white">
                     Are you sure you want to delete this segmentation?
                   </p>
-                  <div className="bg-secondary-dark p-4 rounded-lg mb-4">
-                    <div className="text-sm text-gray-300 mb-2">
+                  <div className="bg-secondary-dark mb-4 rounded-lg p-4">
+                    <div className="mb-2 text-sm text-gray-300">
                       <span className="font-medium text-blue-400">Series:</span> {description}
                     </div>
-                    <div className="text-sm text-gray-300 mb-2">
+                    <div className="mb-2 text-sm text-gray-300">
                       <span className="font-medium text-blue-400">Modality:</span> {modality}
                     </div>
                     <div className="text-sm text-gray-300">
-                      <span className="font-medium text-blue-400">Series Number:</span> {seriesNumber}
+                      <span className="font-medium text-blue-400">Series Number:</span>{' '}
+                      {seriesNumber}
                     </div>
                   </div>
-                  <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3">
+                  <div className="rounded-lg border border-red-500/50 bg-red-900/30 p-3">
                     <p className="text-sm text-red-200">
-                      ⚠️ <strong>Warning:</strong> This action cannot be undone. All segmentation data will be permanently removed from the system.
+                      ⚠️ <strong>Warning:</strong> This action cannot be undone. All segmentation
+                      data will be permanently removed from the system.
                     </p>
                   </div>
                 </div>
@@ -479,10 +499,10 @@ const Thumbnail = ({
       });
     } else {
       // Non-admin users get guidance message
-      const fullName = userProfile 
+      const fullName = userProfile
         ? `${userProfile.first_name} ${userProfile.last_name}`.trim()
         : 'Doctor';
-        
+
       servicesManager.services.uiNotificationService.show({
         title: 'Administrative Permission Required',
         message: `${fullName}, to delete this segmentation, please use "Clinical Review Request" above to submit a removal request to the administrator.`,
@@ -497,11 +517,14 @@ const Thumbnail = ({
     // Check if task is completed first
     if (window.taskCompletionStatus?.isCompleted) {
       if (window.showToast) {
-        window.showToast('This task has been completed and locked. No further modifications are allowed.', 'error');
+        window.showToast(
+          'This task has been completed and locked. No further modifications are allowed.',
+          'error'
+        );
       }
       return;
     }
-    
+
     // If already approved, show information instead of allowing change
     if (isApproved) {
       if (window.showToast) {
@@ -515,11 +538,11 @@ const Thumbnail = ({
 
     // Refresh threads status before proceeding
     await loadThreads();
-    
+
     // Check if threads are resolved before allowing selection
     if (!areAllThreadsResolved()) {
       const unresolvedCount = getUnresolvedCount();
-      
+
       // Show error notification at bottom-right
       if (window.showToast) {
         window.showToast(
@@ -533,67 +556,74 @@ const Thumbnail = ({
     if (isSelectedForValidation) {
       // Deselect if already selected (only for non-approved SEGs)
       setIsSelectedForValidation(false);
-      
+
       // Clear global state
       if (window.selectedSegmentationForApproval) {
         delete window.selectedSegmentationForApproval;
       }
-      
+
       console.log('🔹 Clinical validation cleared for:', description);
-      
+
       // Show notification
       if (window.showToast) {
         window.showToast('Clinical validation cleared', 'success');
       }
-      
+
       // Force re-render of all thumbnails to update their selection state
-      window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-        detail: { newSelection: null }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('segmentationSelectionChanged', {
+          detail: { newSelection: null },
+        })
+      );
     } else {
       // Check if another SEG is already selected
       const currentlySelected = window.selectedSegmentationForApproval;
-      
+
       if (currentlySelected && currentlySelected.seriesInstanceUID !== seriesInstanceUID) {
         // Another SEG is already selected, show professional modal
         const currentLabel = description || `SEG S${seriesNumber}`;
         setPendingSelection({
           currentSelection: currentlySelected.label,
-          newSelection: currentLabel
+          newSelection: currentLabel,
         });
         setShowSelectionModal(true);
       } else {
         // Clear any previous selection first to ensure only one SEG is selected
         if (window.selectedSegmentationForApproval) {
-          console.log('🔄 Clearing previous selection:', window.selectedSegmentationForApproval.label);
+          console.log(
+            '🔄 Clearing previous selection:',
+            window.selectedSegmentationForApproval.label
+          );
           delete window.selectedSegmentationForApproval;
-          
+
           // Dispatch clear event first
-          window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-            detail: { newSelection: null }
-          }));
+          window.dispatchEvent(
+            new CustomEvent('segmentationSelectionChanged', {
+              detail: { newSelection: null },
+            })
+          );
         }
-        
+
         // Small delay to ensure clear event is processed by all components
         setTimeout(() => {
           // No other SEG selected, proceed normally
           const timestamp = Date.now();
           setIsSelectedForValidation(true);
-          
+
           // Set global state for the Approve Task button to use
           window.selectedSegmentationForApproval = {
             segmentationId: displaySetInstanceUID,
             seriesInstanceUID: seriesInstanceUID,
             label: description || `SEG S${seriesNumber}`,
-            timestamp: timestamp
+            timestamp: timestamp,
           };
-          
+
           console.log('✅ SEG selected for clinical validation:', {
             label: description,
             segmentationId: displaySetInstanceUID,
-            seriesInstanceUID: seriesInstanceUID
+            seriesInstanceUID: seriesInstanceUID,
           });
-          
+
           // Show notification
           if (window.showToast) {
             window.showToast(
@@ -601,11 +631,13 @@ const Thumbnail = ({
               'success'
             );
           }
-          
+
           // Force re-render of all thumbnails to update their selection state
-          window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-            detail: { newSelection: window.selectedSegmentationForApproval }
-          }));
+          window.dispatchEvent(
+            new CustomEvent('segmentationSelectionChanged', {
+              detail: { newSelection: window.selectedSegmentationForApproval },
+            })
+          );
         }, 100); // Delay to ensure previous clear event is processed
       }
     }
@@ -614,13 +646,13 @@ const Thumbnail = ({
   // Handle modal confirmation with threads check
   const handleModalConfirm = async () => {
     if (!pendingSelection) return;
-    
+
     // Check threads again before confirming
     await loadThreads();
-    
+
     if (!areAllThreadsResolved()) {
       const unresolvedCount = getUnresolvedCount();
-      
+
       // Show error notification and close modal
       if (window.showToast) {
         window.showToast(
@@ -628,43 +660,45 @@ const Thumbnail = ({
           'error'
         );
       }
-      
+
       setShowSelectionModal(false);
       setPendingSelection(null);
       return;
     }
-    
+
     // User confirmed, switch to new SEG
-    
+
     // First clear previous selection
     if (window.selectedSegmentationForApproval) {
       delete window.selectedSegmentationForApproval;
-      
+
       // Dispatch clear event first
-      window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-        detail: { newSelection: null }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('segmentationSelectionChanged', {
+          detail: { newSelection: null },
+        })
+      );
     }
-    
+
     // Small delay to ensure clear event is processed by all components
     setTimeout(() => {
       const timestamp = Date.now();
       setIsSelectedForValidation(true);
-      
+
       // Update global state
       window.selectedSegmentationForApproval = {
         segmentationId: displaySetInstanceUID,
         seriesInstanceUID: seriesInstanceUID,
         label: description || `SEG S${seriesNumber}`,
-        timestamp: timestamp
+        timestamp: timestamp,
       };
-      
+
       console.log('🔄 SEG selection switched to:', {
         from: pendingSelection.currentSelection,
         to: pendingSelection.newSelection,
-        newSeriesInstanceUID: seriesInstanceUID
+        newSeriesInstanceUID: seriesInstanceUID,
       });
-      
+
       // Show notification
       if (window.showToast) {
         window.showToast(
@@ -672,13 +706,15 @@ const Thumbnail = ({
           'success'
         );
       }
-      
+
       // Force re-render of all thumbnails to update their selection state
-      window.dispatchEvent(new CustomEvent('segmentationSelectionChanged', {
-        detail: { newSelection: window.selectedSegmentationForApproval }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('segmentationSelectionChanged', {
+          detail: { newSelection: window.selectedSegmentationForApproval },
+        })
+      );
     }, 100); // Delay to ensure previous clear event is processed
-    
+
     // Close modal
     setShowSelectionModal(false);
     setPendingSelection(null);
@@ -693,7 +729,7 @@ const Thumbnail = ({
         'success'
       );
     }
-    
+
     setShowSelectionModal(false);
     setPendingSelection(null);
   };
@@ -701,7 +737,7 @@ const Thumbnail = ({
   const handleDownloadSeries = async () => {
     try {
       // Use production Orthanc URL - no process.env in browser
-      const orthancUrl = 'https://latn-3.eastasia.cloudapp.azure.com/datasource';
+      const orthancUrl = 'http://35.223.3.190/datasource';
 
       // Debug: Log all available information
       console.log('🔍 Debug Info:');
@@ -896,7 +932,7 @@ const Thumbnail = ({
       // Show professional notification that task is locked
       if (window.showToast) {
         window.showToast(
-          'This task has been approved and finalized. No further modifications are allowed.', 
+          'This task has been approved and finalized. No further modifications are allowed.',
           'error'
         );
       }
@@ -952,18 +988,32 @@ const Thumbnail = ({
               {modality === 'SEG' && isSelectedForValidation && (
                 <Tooltip>
                   <TooltipTrigger>
-                    <div className={`text-white rounded-full p-1 shadow-lg ${
-                      isApproved 
-                        ? 'bg-emerald-600 shadow-emerald-500/30' 
-                        : 'bg-green-600 shadow-green-500/20 animate-pulse'
-                    }`}>
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <div
+                      className={`rounded-full p-1 text-white shadow-lg ${
+                        isApproved
+                          ? 'bg-emerald-600 shadow-emerald-500/30'
+                          : 'animate-pulse bg-green-600 shadow-green-500/20'
+                      }`}
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
                         {isApproved ? (
                           // Approved icon (crown/badge)
-                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                          <path
+                            fillRule="evenodd"
+                            d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         ) : (
                           // Temporary selection icon (checkmark)
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
                         )}
                       </svg>
                     </div>
@@ -971,13 +1021,14 @@ const Thumbnail = ({
                   <TooltipContent side="left">
                     <div className="text-sm">
                       <div className="font-semibold text-green-300">
-                        {isApproved ? '🔒 Approved for Clinical Use' : 'Selected for Clinical Validation'}
+                        {isApproved
+                          ? '🔒 Approved for Clinical Use'
+                          : 'Selected for Clinical Validation'}
                       </div>
-                      <div className="text-xs text-gray-300 mt-1">
-                        {isApproved 
+                      <div className="mt-1 text-xs text-gray-300">
+                        {isApproved
                           ? `Approved by ${approvedBy}${approvedAt ? ` on ${new Date(approvedAt).toLocaleDateString()}` : ''} - Cannot be modified`
-                          : 'This segmentation will be used for task approval'
-                        }
+                          : 'This segmentation will be used for task approval'}
                       </div>
                     </div>
                   </TooltipContent>
@@ -1038,7 +1089,9 @@ const Thumbnail = ({
                         <Icons.Trash className="h-4 w-4" />
                         <div>
                           <div className="font-medium">Clinical Review Request</div>
-                          <div className="text-xs text-gray-400">Request admin approval for removal</div>
+                          <div className="text-xs text-gray-400">
+                            Request admin approval for removal
+                          </div>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -1051,36 +1104,50 @@ const Thumbnail = ({
                       <DropdownMenuItem
                         onSelect={handleClinicalValidation}
                         className={`gap-[6px] ${
-                          isSelectedForValidation 
-                            ? 'text-green-400 hover:text-green-300' 
+                          isSelectedForValidation
+                            ? 'text-green-400 hover:text-green-300'
                             : 'text-amber-400 hover:text-amber-300'
                         }`}
                       >
                         {isSelectedForValidation ? (
-                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                          <svg
+                            className="h-4 w-4"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         ) : (
-                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                          <svg
+                            className="h-4 w-4"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         )}
                         <div>
                           <div className="font-medium">
-                            {isApproved 
+                            {isApproved
                               ? 'Approved for Clinical Use'
-                              : isSelectedForValidation 
-                                ? 'Selected for Validation' 
-                                : 'Select for Clinical Validation'
-                            }
+                              : isSelectedForValidation
+                                ? 'Selected for Validation'
+                                : 'Select for Clinical Validation'}
                           </div>
                           <div className="text-xs text-gray-400">
                             {isApproved
                               ? `Approved by ${approvedBy} - Cannot be modified`
-                              : isSelectedForValidation 
+                              : isSelectedForValidation
                                 ? 'This segmentation is ready for task approval'
-                                : 'Choose this as the final clinical annotation'
-                            }
+                                : 'Choose this as the final clinical annotation'}
                           </div>
                         </div>
                       </DropdownMenuItem>
@@ -1101,7 +1168,7 @@ const Thumbnail = ({
                       </div>
                     </DropdownMenuItem>
                   )}
-                  
+
                   {/* Delete SEG Series - Always show but behavior differs */}
                   {modality === 'SEG' && (
                     <>
@@ -1114,7 +1181,9 @@ const Thumbnail = ({
                         <div>
                           <div className="font-medium">Delete</div>
                           <div className="text-xs text-gray-400">
-                            {isAdmin ? 'Permanently remove segmentation' : 'Requires admin permission'}
+                            {isAdmin
+                              ? 'Permanently remove segmentation'
+                              : 'Requires admin permission'}
                           </div>
                         </div>
                       </DropdownMenuItem>
@@ -1193,19 +1262,31 @@ const Thumbnail = ({
             messages={messages}
             id={`display-set-tooltip-${displaySetInstanceUID}`}
           />
-          
+
           {/* Clinical Validation Badge for SEG in List View */}
           {modality === 'SEG' && isSelectedForValidation && (
             <Tooltip>
               <TooltipTrigger>
-                <div className="text-white rounded-full p-1 shadow-lg bg-green-600 shadow-green-500/30">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <div className="rounded-full bg-green-600 p-1 text-white shadow-lg shadow-green-500/30">
+                  <svg
+                    className="h-3 w-3"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     {isApproved ? (
                       // Approved icon (crown/badge)
-                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      <path
+                        fillRule="evenodd"
+                        d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
                     ) : (
                       // Temporary selection icon (checkmark)
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     )}
                   </svg>
                 </div>
@@ -1213,13 +1294,14 @@ const Thumbnail = ({
               <TooltipContent side="left">
                 <div className="text-sm">
                   <div className="font-semibold text-green-300">
-                    {isApproved ? '🔒 Approved for Clinical Use' : 'Selected for Clinical Validation'}
+                    {isApproved
+                      ? '🔒 Approved for Clinical Use'
+                      : 'Selected for Clinical Validation'}
                   </div>
-                  <div className="text-xs text-gray-300 mt-1">
-                    {isApproved 
+                  <div className="mt-1 text-xs text-gray-300">
+                    {isApproved
                       ? `Approved by ${approvedBy}${approvedAt ? ` on ${new Date(approvedAt).toLocaleDateString()}` : ''} - Cannot be modified`
-                      : 'This segmentation will be used for task approval'
-                    }
+                      : 'This segmentation will be used for task approval'}
                   </div>
                 </div>
               </TooltipContent>
@@ -1263,7 +1345,7 @@ const Thumbnail = ({
                 <Icons.More />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent 
+            <DropdownMenuContent
               hideWhenDetached
               className="w-56"
             >
@@ -1277,7 +1359,9 @@ const Thumbnail = ({
                     <Icons.Trash className="h-4 w-4" />
                     <div>
                       <div className="font-medium">Clinical Review Request</div>
-                      <div className="text-xs text-gray-400">Request admin approval for removal</div>
+                      <div className="text-xs text-gray-400">
+                        Request admin approval for removal
+                      </div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -1290,36 +1374,50 @@ const Thumbnail = ({
                   <DropdownMenuItem
                     onSelect={handleClinicalValidation}
                     className={`gap-[6px] ${
-                      isSelectedForValidation 
-                        ? 'text-green-400 hover:text-green-300' 
+                      isSelectedForValidation
+                        ? 'text-green-400 hover:text-green-300'
                         : 'text-amber-400 hover:text-amber-300'
                     }`}
                   >
                     {isSelectedForValidation ? (
-                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      <svg
+                        className="h-4 w-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     ) : (
-                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      <svg
+                        className="h-4 w-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     )}
                     <div>
                       <div className="font-medium">
-                        {isApproved 
+                        {isApproved
                           ? 'Approved for Clinical Use'
-                          : isSelectedForValidation 
-                            ? 'Selected for Validation' 
-                            : 'Select for Clinical Validation'
-                        }
+                          : isSelectedForValidation
+                            ? 'Selected for Validation'
+                            : 'Select for Clinical Validation'}
                       </div>
                       <div className="text-xs text-gray-400">
                         {isApproved
                           ? `Approved by ${approvedBy} - Cannot be modified`
-                          : isSelectedForValidation 
+                          : isSelectedForValidation
                             ? 'This segmentation is ready for task approval'
-                            : 'Choose this as the final clinical annotation'
-                        }
+                            : 'Choose this as the final clinical annotation'}
                       </div>
                     </div>
                   </DropdownMenuItem>
@@ -1340,25 +1438,25 @@ const Thumbnail = ({
                   </div>
                 </DropdownMenuItem>
               )}
-              
-                             {/* Delete SEG Series - Always show but behavior differs */}
-               {modality === 'SEG' && (
-                 <>
-                   <DropdownMenuSeparator />
-                   <DropdownMenuItem
-                     onSelect={handleDeleteClick}
-                     className="gap-[6px] text-red-400 hover:text-red-300"
-                   >
-                     <Icons.Trash className="h-4 w-4" />
-                     <div>
-                       <div className="font-medium">Delete</div>
-                       <div className="text-xs text-gray-400">
-                         {isAdmin ? 'Permanently remove segmentation' : 'Requires admin permission'}
-                       </div>
-                     </div>
-                   </DropdownMenuItem>
-                 </>
-               )}
+
+              {/* Delete SEG Series - Always show but behavior differs */}
+              {modality === 'SEG' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={handleDeleteClick}
+                    className="gap-[6px] text-red-400 hover:text-red-300"
+                  >
+                    <Icons.Trash className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">Delete</div>
+                      <div className="text-xs text-gray-400">
+                        {isAdmin ? 'Permanently remove segmentation' : 'Requires admin permission'}
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1374,8 +1472,9 @@ const Thumbnail = ({
         viewPreset === 'thumbnails' && 'h-[170px] w-[135px]',
         viewPreset === 'list' && 'col-span-2 h-[40px] w-[275px]',
         // Highlight for clinical validation selection - use same green color for both approved and temporary
-        modality === 'SEG' && isSelectedForValidation && 
-          'ring-2 ring-green-500 ring-opacity-50 bg-green-500/20 border border-green-500/50 shadow-lg shadow-green-500/30'
+        modality === 'SEG' &&
+          isSelectedForValidation &&
+          'border border-green-500/50 bg-green-500/20 shadow-lg shadow-green-500/30 ring-2 ring-green-500 ring-opacity-50'
       )}
       id={`thumbnail-${displaySetInstanceUID}`}
       data-cy={
@@ -1396,7 +1495,7 @@ const Thumbnail = ({
         {viewPreset === 'thumbnails' && renderThumbnailPreset()}
         {viewPreset === 'list' && renderListPreset()}
       </div>
-      
+
       {/* Professional Modal for Segmentation Selection */}
       {pendingSelection && (
         <SegmentationSelectionModal

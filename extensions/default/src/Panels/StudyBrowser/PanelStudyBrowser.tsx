@@ -181,7 +181,12 @@ function PanelStudyBrowser({
   useEffect(() => {
     // TODO: Are we sure `activeDisplaySets` will always be accurate?
     const currentDisplaySets = displaySetService.activeDisplaySets;
-    const mappedDisplaySets = _mapDisplaySets(currentDisplaySets, thumbnailImageSrcMap, displaySetService, uiNotificationService);
+    const mappedDisplaySets = _mapDisplaySets(
+      currentDisplaySets,
+      thumbnailImageSrcMap,
+      displaySetService,
+      uiNotificationService
+    );
     sortStudyInstances(mappedDisplaySets);
 
     setDisplaySets(mappedDisplaySets);
@@ -236,7 +241,12 @@ function PanelStudyBrowser({
     const SubscriptionDisplaySetsChanged = displaySetService.subscribe(
       displaySetService.EVENTS.DISPLAY_SETS_CHANGED,
       changedDisplaySets => {
-        const mappedDisplaySets = _mapDisplaySets(changedDisplaySets, thumbnailImageSrcMap, displaySetService, uiNotificationService);
+        const mappedDisplaySets = _mapDisplaySets(
+          changedDisplaySets,
+          thumbnailImageSrcMap,
+          displaySetService,
+          uiNotificationService
+        );
         setDisplaySets(mappedDisplaySets);
       }
     );
@@ -344,18 +354,23 @@ function _mapDataSourceStudies(studies) {
   });
 }
 
-function _mapDisplaySets(displaySets, thumbnailImageSrcMap, displaySetService, uiNotificationService) {
+function _mapDisplaySets(
+  displaySets,
+  thumbnailImageSrcMap,
+  displaySetService,
+  uiNotificationService
+) {
   const thumbnailDisplaySets = [];
   const thumbnailNoImageDisplaySets = [];
 
   // Ensure displaySets is an array
   const safeDisplaySets = Array.isArray(displaySets) ? displaySets : [];
-  
+
   console.log('🔍 _mapDisplaySets called with:', {
     displaySetsType: typeof displaySets,
     isArray: Array.isArray(displaySets),
     length: safeDisplaySets.length,
-    displaySets: safeDisplaySets
+    displaySets: safeDisplaySets,
   });
 
   safeDisplaySets
@@ -394,53 +409,63 @@ function _mapDisplaySets(displaySets, thumbnailImageSrcMap, displaySetService, u
         displaySetData.onReject = async () => {
           try {
             // Use production Orthanc URL
-            const orthancUrl = 'https://latn-3.eastasia.cloudapp.azure.com/datasource';
-            
+            const orthancUrl = 'http://35.223.3.190/datasource';
+
             console.log('🗑️ Deleting SEG series:', {
               displaySetInstanceUID: ds.displaySetInstanceUID,
               seriesInstanceUID: ds.SeriesInstanceUID,
               description: ds.SeriesDescription,
               modality: ds.Modality,
-              seriesNumber: ds.SeriesNumber
+              seriesNumber: ds.SeriesNumber,
             });
-            
+
             // First, find the Orthanc series ID
             const seriesListResponse = await fetch(`${orthancUrl}/series`, {
               method: 'GET',
-              headers: { 'Accept': 'application/json' },
+              headers: { Accept: 'application/json' },
             });
-            
+
             if (!seriesListResponse.ok) {
               throw new Error('Cannot get series list from Orthanc');
             }
-            
+
             const seriesList = await seriesListResponse.json();
             let matchingOrthancSeriesId = null;
-            
+
             // Find matching series by modality and series number
             for (const orthancSeriesId of seriesList) {
               try {
-                const seriesDetailResponse = await fetch(`${orthancUrl}/series/${orthancSeriesId}`, {
-                  method: 'GET',
-                  headers: { 'Accept': 'application/json' },
-                });
-                
+                const seriesDetailResponse = await fetch(
+                  `${orthancUrl}/series/${orthancSeriesId}`,
+                  {
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                  }
+                );
+
                 if (seriesDetailResponse.ok) {
                   const seriesDetail = await seriesDetailResponse.json();
                   const orthancModality = seriesDetail.MainDicomTags?.Modality;
                   const orthancSeriesNumber = seriesDetail.MainDicomTags?.SeriesNumber;
                   const orthancDescription = seriesDetail.MainDicomTags?.SeriesDescription;
-                  
+
                   // Match by modality and series number
                   if (orthancModality === ds.Modality && orthancSeriesNumber == ds.SeriesNumber) {
                     console.log('🎯 Found matching series for deletion:', orthancSeriesId);
                     matchingOrthancSeriesId = orthancSeriesId;
                     break;
                   }
-                  
+
                   // Alternative: Match by description if series number doesn't work
-                  if (orthancModality === ds.Modality && ds.SeriesDescription && orthancDescription?.includes(ds.SeriesDescription)) {
-                    console.log('🎯 Found matching series by description for deletion:', orthancSeriesId);
+                  if (
+                    orthancModality === ds.Modality &&
+                    ds.SeriesDescription &&
+                    orthancDescription?.includes(ds.SeriesDescription)
+                  ) {
+                    console.log(
+                      '🎯 Found matching series by description for deletion:',
+                      orthancSeriesId
+                    );
                     matchingOrthancSeriesId = orthancSeriesId;
                     break;
                   }
@@ -449,27 +474,27 @@ function _mapDisplaySets(displaySets, thumbnailImageSrcMap, displaySetService, u
                 continue;
               }
             }
-            
+
             if (!matchingOrthancSeriesId) {
               throw new Error(`No matching ${ds.Modality} series found for deletion`);
             }
-            
+
             // Delete the series from Orthanc
             console.log('🗑️ Deleting from Orthanc:', matchingOrthancSeriesId);
             const deleteResponse = await fetch(`${orthancUrl}/series/${matchingOrthancSeriesId}`, {
               method: 'DELETE',
-              headers: { 'Accept': 'application/json' },
+              headers: { Accept: 'application/json' },
             });
-            
+
             if (!deleteResponse.ok) {
               throw new Error(`Failed to delete from Orthanc: HTTP ${deleteResponse.status}`);
             }
-            
+
             console.log('✅ Successfully deleted from Orthanc');
-            
+
             // Remove the displaySet from the UI service
             displaySetService.deleteDisplaySet(ds.displaySetInstanceUID);
-            
+
             // Show success notification
             uiNotificationService.show({
               title: 'SEG Series Deleted',
@@ -477,10 +502,9 @@ function _mapDisplaySets(displaySets, thumbnailImageSrcMap, displaySetService, u
               type: 'success',
               duration: 4000,
             });
-            
           } catch (error) {
             console.error('❌ Delete failed:', error);
-            
+
             // Show error notification
             uiNotificationService.show({
               title: 'Delete Failed',
