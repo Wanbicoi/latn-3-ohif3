@@ -17,16 +17,41 @@ import './SettingsTable.css';
 import { Icon } from '@ohif/ui';
 import { CookieUtils } from '../utils/GenericUtils';
 
-export default class SettingsTable extends Component {
+interface SettingsTableState {
+  url: string;
+  overlap_segments: boolean;
+  export_format: string;
+}
+
+interface SettingsTableProps {
+  onInfo: (url: string) => void;
+}
+
+export default class SettingsTable extends Component<SettingsTableProps, SettingsTableState> {
   onInfo: any;
 
   constructor(props) {
     super(props);
     this.onInfo = props.onInfo;
 
+    // Fix URL construction for deployment environments
+    const getDefaultURL = () => {
+      try {
+        const hostname = window.location.hostname;
+        // For deployment, use localhost as fallback
+        const defaultHost = hostname === 'localhost' || hostname === '127.0.0.1' 
+          ? hostname 
+          : 'localhost';
+        return `http://${defaultHost}:8000/`;
+      } catch (e) {
+        console.warn('Error getting default MONAI server URL:', e);
+        return 'http://localhost:8000/';
+      }
+    };
+
     const url = CookieUtils.getCookieString(
       'MONAILABEL_SERVER_URL',
-      'http://' + window.location.host.split(':')[0] + ':8000/'
+      getDefaultURL()
     );
     const overlap_segments = CookieUtils.getCookieBool(
       'MONAILABEL_OVERLAP_SEGMENTS',
@@ -53,11 +78,22 @@ export default class SettingsTable extends Component {
   };
 
   onConnect = () => {
-    const url = document.getElementById('monailabelServerURL').value;
+    const url = (document.getElementById('monailabelServerURL') as HTMLInputElement)?.value || this.state.url;
     this.setState({ url: url });
     CookieUtils.setCookie('MONAILABEL_SERVER_URL', url);
     console.log('Connecting Server', url);
     this.onInfo(url);
+  };
+
+  getSafeURL = (path: string): string => {
+    try {
+      const baseURL = this.state.url.endsWith('/') ? this.state.url : this.state.url + '/';
+      const url = new URL(baseURL);
+      return url.toString() + path;
+    } catch (e) {
+      console.warn('Invalid MONAI server URL:', this.state.url, e);
+      return `http://localhost:8000/${path}`;
+    }
   };
 
   render() {
@@ -88,7 +124,7 @@ export default class SettingsTable extends Component {
           <tr style={{ fontSize: 'smaller' }}>
             <td colSpan={3}>
               <a
-                href={new URL(this.state.url).toString() + 'info/'}
+                href={this.getSafeURL('info/')}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -96,7 +132,7 @@ export default class SettingsTable extends Component {
               </a>
               <b>&nbsp;&nbsp;|&nbsp;&nbsp;</b>
               <a
-                href={new URL(this.state.url).toString() + 'logs/?lines=100'}
+                href={this.getSafeURL('logs/?lines=100')}
                 target="_blank"
                 rel="noopener noreferrer"
               >
