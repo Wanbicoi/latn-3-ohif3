@@ -409,7 +409,7 @@ function _mapDisplaySets(
         displaySetData.onReject = async () => {
           try {
             // Use production Orthanc URL
-            const orthancUrl = 'http://35.223.3.190/datasource';
+            const orthancUrl = 'https://mediflow-latn.duckdns.org/datasource';
 
             console.log('🗑️ Deleting SEG series:', {
               displaySetInstanceUID: ds.displaySetInstanceUID,

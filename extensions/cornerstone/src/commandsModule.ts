@@ -1078,7 +1078,7 @@ function commandsModule({
 
       if (!seriesInstanceUID) return;
 
-      const ORTHANC_SERVER_URL = 'http://35.223.3.190/datasource';
+      const ORTHANC_SERVER_URL = 'https://mediflow-latn.duckdns.org/datasource';
       const getOrthancSeriesUuidUrl = ORTHANC_SERVER_URL + '/tools/find';
       const findSeriesUUID = await fetch(getOrthancSeriesUuidUrl, {
         method: 'POST',

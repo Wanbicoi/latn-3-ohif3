@@ -81,9 +81,9 @@ window.config = {
       configuration: {
         friendlyName: 'AWS S3 Static wado server',
         name: 'aws',
-        wadoUriRoot: 'http://35.223.3.190/datasource/dicom-web',
-        qidoRoot: 'http://35.223.3.190/datasource/dicom-web',
-        wadoRoot: 'http://35.223.3.190/datasource/dicom-web',
+        wadoUriRoot: 'https://mediflow-latn.duckdns.org/datasource/dicom-web',
+        qidoRoot: 'https://mediflow-latn.duckdns.org/datasource/dicom-web',
+        wadoRoot: 'https://mediflow-latn.duckdns.org/datasource/dicom-web',
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',

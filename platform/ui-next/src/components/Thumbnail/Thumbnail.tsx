@@ -737,7 +737,7 @@ const Thumbnail = ({
   const handleDownloadSeries = async () => {
     try {
       // Use production Orthanc URL - no process.env in browser
-      const orthancUrl = 'http://35.223.3.190/datasource';
+      const orthancUrl = 'https://mediflow-latn.duckdns.org/datasource';
 
       // Debug: Log all available information
       console.log('🔍 Debug Info:');
