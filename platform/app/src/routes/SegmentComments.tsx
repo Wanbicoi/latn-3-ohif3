@@ -58,8 +58,8 @@ declare global {
   interface Window {
     taskCompletionStatus?: {
       isCompleted: boolean;
-      completedBy: string;
-      completedAt: string;
+      completedBy?: string;
+      completedAt?: string;
     };
   }
 }
@@ -1093,9 +1093,9 @@ const SegmentComments: React.FC = () => {
   // 🎯 Approve Button Functions
   const areAllThreadsResolved = (): boolean => {
     const threads = getThreadedComments();
-    // Must have at least 1 thread AND all threads must be resolved
-    if (threads.length === 0) return false;
-    return threads.length > 0 && threads.every(thread => thread.data?.status === 'resolved');
+    // No threads = OK to proceed, if threads exist then all must be resolved
+    if (threads.length === 0) return true;
+    return threads.every(thread => thread.data?.status === 'resolved');
   };
 
   const toggleReplies = (commentId: string) => {

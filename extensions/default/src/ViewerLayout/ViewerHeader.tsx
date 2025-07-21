@@ -269,7 +269,7 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   }, [refreshTrigger]);
 
   const areAllThreadsResolved = (): boolean => {
-    if (threads.length === 0) return false;
+    if (threads.length === 0) return true; // No threads = OK to proceed
     return threads.every((thread: any) => thread.data?.status === 'resolved');
   };
 
@@ -490,7 +490,13 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   const getButtonText = () => {
     if (isTaskCompleted) return `Completed by ${completedBy}`;
     if (isLoadingThreads) return 'Loading...';
-    if (threads.length === 0) return 'No Threads';
+    if (threads.length === 0) {
+      const selectedSegmentation = window.selectedSegmentationForApproval;
+      if (selectedSegmentation) {
+        return `Approve with ${selectedSegmentation.label}`;
+      }
+      return 'Select SEG to Approve';
+    }
     if (areAllThreadsResolved()) {
       const selectedSegmentation = window.selectedSegmentationForApproval;
       if (selectedSegmentation) {
@@ -504,9 +510,9 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
 
   const getButtonState = () => {
     if (isTaskCompleted) return 'completed';
-    if (isLoadingThreads || threads.length === 0 || !areAllThreadsResolved()) {
-      return 'disabled';
-    }
+    if (isLoadingThreads) return 'disabled';
+    if (!areAllThreadsResolved()) return 'disabled';
+    
     const selectedSegmentation = window.selectedSegmentationForApproval;
     if (!selectedSegmentation) {
       return 'needs-selection';
@@ -517,7 +523,13 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   const getTooltipText = () => {
     if (isTaskCompleted) return `Task completed by ${completedBy}${completedAt ? ` on ${new Date(completedAt).toLocaleDateString()}` : ''}`;
     if (isLoadingThreads) return 'Loading...';
-    if (threads.length === 0) return 'No threads yet';
+    if (threads.length === 0) {
+      const selectedSegmentation = window.selectedSegmentationForApproval;
+      if (selectedSegmentation) {
+        return `Ready to approve with selected segmentation: ${selectedSegmentation.label}`;
+      }
+      return 'No threads yet. Please select a segmentation for clinical validation.';
+    }
     if (areAllThreadsResolved()) {
       const selectedSegmentation = window.selectedSegmentationForApproval;
       if (selectedSegmentation) {
@@ -543,9 +555,7 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
               ? 'bg-green-600/80 hover:bg-green-600 text-white border-green-500/50 hover:scale-105' 
               : buttonState === 'needs-selection'
                 ? 'bg-amber-600/50 text-amber-200 border-amber-500/30 cursor-not-allowed opacity-80'
-                : threads.length === 0
-                  ? 'bg-orange-500/50 text-orange-200 border-orange-400/30 cursor-not-allowed opacity-80'
-                  : 'bg-blue-500/50 text-blue-200 border-blue-400/30 cursor-not-allowed opacity-80'
+                : 'bg-blue-500/50 text-blue-200 border-blue-400/30 cursor-not-allowed opacity-80'
         }`}
       >
         {/* Icon */}
@@ -559,8 +569,6 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
             </svg>
-          ) : threads.length === 0 ? (
-            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
           ) : areAllThreadsResolved() ? (
             buttonState === 'needs-selection' ? (
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
