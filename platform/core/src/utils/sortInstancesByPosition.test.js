@@ -19,9 +19,10 @@ describe('sortInstances', () => {
 
     const sortedInstances = sortInstances(instances);
 
+    // Now expecting ascending order (0 -> 1 -> 2) instead of descending
     expect(sortedInstances).toEqual([
       {
-        ImagePositionPatient: [0, 0, 0],
+        ImagePositionPatient: [0, 0, 2],
         ImageOrientationPatient: [1, 0, 0, 0, 1, 0],
       },
       {
@@ -29,7 +30,7 @@ describe('sortInstances', () => {
         ImageOrientationPatient: [1, 0, 0, 0, 1, 0],
       },
       {
-        ImagePositionPatient: [0, 0, 2],
+        ImagePositionPatient: [0, 0, 0],
         ImageOrientationPatient: [1, 0, 0, 0, 1, 0],
       },
     ]);

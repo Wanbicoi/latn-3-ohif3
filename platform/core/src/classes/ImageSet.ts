@@ -119,7 +119,10 @@ class ImageSet {
     });
 
     distanceImagePairs.sort(function (a, b) {
-      return b.distance - a.distance;
+      // IMPORTANT: Sort in ascending order (a - b) instead of descending (b - a)
+      // This ensures slices are ordered from inferior to superior (feet to head)
+      // which matches the expected DICOM slice ordering
+      return a.distance - b.distance;
     });
 
     const sortedImages = distanceImagePairs.map(a => a.image);

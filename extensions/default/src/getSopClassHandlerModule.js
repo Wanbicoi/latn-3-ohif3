@@ -104,10 +104,17 @@ const makeDisplaySet = instances => {
   // Sort the images in this series if needed
   const shallSort = true; //!OHIF.utils.ObjectPath.get(Meteor, 'settings.public.ui.sortSeriesByIncomingOrder');
   if (shallSort) {
-    imageSet.sortBy((a, b) => {
-      // Sort by InstanceNumber (0020,0013)
-      return (parseInt(a.InstanceNumber) || 0) - (parseInt(b.InstanceNumber) || 0);
-    });
+    // IMPORTANT: Sort by actual 3D position instead of InstanceNumber
+    // This fixes the issue where manual segmentation labels are saved in reversed order
+    try {
+      imageSet.sortByImagePositionPatient();
+    } catch (error) {
+      // Fallback to InstanceNumber if position sorting fails
+      imageSet.sortBy((a, b) => {
+        // Sort by InstanceNumber (0020,0013)
+        return (parseInt(a.InstanceNumber) || 0) - (parseInt(b.InstanceNumber) || 0);
+      });
+    }
   }
 
   // Include the first image instance number (after sorted)

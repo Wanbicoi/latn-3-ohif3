@@ -112,7 +112,6 @@ const commandsModule = ({
       // Access labelmap imageIds with a type cast to avoid TS complaints in the custom codebase
       const imageIds: string[] = (segmentation.representationData as any).Labelmap.imageIds;
 
-      // Fetch the cached images; filter out any undefined (not yet in cache)
       const segImages = imageIds
         .map(imageId => cache.getImage(imageId))
         .filter(Boolean);
@@ -135,156 +134,39 @@ const commandsModule = ({
       const firstReferencedImage = referencedImages[0];
       const referenceMetadata = firstReferencedImage?.data?.metadata;
       
-      console.log('🔍 Reference Image Orientation Debug:', {
-        hasMetadata: !!referenceMetadata,
-        imageOrientationPatient: referenceMetadata?.ImageOrientationPatient,
-        imagePositionPatient: referenceMetadata?.ImagePositionPatient,
-        pixelSpacing: referenceMetadata?.PixelSpacing,
-        sliceThickness: referenceMetadata?.SliceThickness,
-        frameOfReferenceUID: referenceMetadata?.FrameOfReferenceUID,
-        segmentationId,
-        numSegImages: segImages.length,
-        numReferencedImages: referencedImages.length
-      });
-
       // -------------------------------------------------------------------
       // Build labelmaps2D theo order của referencedImages (đúng slice index)
       // -------------------------------------------------------------------
-      const refIdToIdx: Record<string, number> = {};
-      referencedImages.forEach((img, i) => {
-        const id = (img as any).imageId || (img as any).SOPInstanceUID || `${i}`;
-        refIdToIdx[id] = i;
-      });
-
-      const labelmapsWithOrder: { idx: number; lm: any }[] = [];
-
-      for (const segImage of segImages) {
+      
+      // IMPORTANT: We should NOT reorder segImages based on referencedImages
+      // The segImages are already in the correct order from createAndCacheDerivedLabelmapImages
+      // Reordering them causes the slice reversal issue
+      
+      const labelmaps2D = [];
+      
+      for (let i = 0; i < segImages.length; i++) {
+        const segImage = segImages[i];
         const pixelData = segImage.getPixelData();
         const { rows, columns } = segImage;
         const segmentsOnLabelmap = new Set<number>();
-        for (let i = 0; i < pixelData.length; i++) {
-          const v = pixelData[i];
+        
+        for (let j = 0; j < pixelData.length; j++) {
+          const v = pixelData[j];
           if (v) segmentsOnLabelmap.add(v);
         }
-
-        // Determine slice index from referenced image id
-        const refId = (segImage as any).referencedImageId || (segImage as any).SOPInstanceUID;
-        const sliceIdx = refIdToIdx[refId] ?? labelmapsWithOrder.length;
-
-        labelmapsWithOrder.push({
-          idx: sliceIdx,
-          lm: {
-            segmentsOnLabelmap: Array.from(segmentsOnLabelmap),
-            pixelData,
-            rows,
-            columns,
-          },
+        
+        labelmaps2D.push({
+          segmentsOnLabelmap: Array.from(segmentsOnLabelmap),
+          pixelData,
+          rows,
+          columns,
         });
       }
-
-      // sort by original slice index
-      labelmapsWithOrder.sort((a, b) => a.idx - b.idx);
-
-      let labelmaps2D = labelmapsWithOrder.map(it => it.lm);
-
-      // -------------------------------------------------------------------
-      // COMPREHENSIVE SLICE ORDER CORRECTION FOR ALL ORIENTATIONS
-      // -------------------------------------------------------------------
       
-      console.log('🔍 Analyzing slice order for segmentation:', {
-        segmentationId,
-        totalSlices: labelmaps2D.length,
-        hasSegments: Object.keys(segmentation.segments).length
-      });
-
-      // Apply slice order correction for all segmentations with sufficient slices
-      if (labelmaps2D.length > 5) {
-        // Get reference image metadata to determine orientation
-        const firstRefImage = referencedImages[0];
-        const refMetadata = metaData.get('instance', firstRefImage.imageId || firstRefImage);
-        
-        let shouldReverse = false;
-        let correctionReason = '';
-        
-        if (refMetadata?.ImageOrientationPatient) {
-          const orientation = refMetadata.ImageOrientationPatient;
-          
-          // Check if this is axial orientation (most common case with slice order issues)
-          const isAxial = Math.abs(orientation[4]) > 0.9; // Y component of row direction
-          const isCoronal = Math.abs(orientation[5]) > 0.9; // Z component of row direction  
-          const isSagittal = Math.abs(orientation[2]) > 0.9; // Z component of column direction
-          
-          console.log('🧭 Detected orientation:', {
-            orientation,
-            isAxial,
-            isCoronal, 
-            isSagittal,
-            imagePosition: refMetadata.ImagePositionPatient
-          });
-          
-          // For axial images, check if slices are ordered incorrectly
-          if (isAxial && refMetadata.ImagePositionPatient) {
-            const firstSliceZ = refMetadata.ImagePositionPatient[2];
-            const lastRefImage = referencedImages[referencedImages.length - 1];
-            const lastMetadata = metaData.get('instance', lastRefImage.imageId || lastRefImage);
-            
-            if (lastMetadata?.ImagePositionPatient) {
-              const lastSliceZ = lastMetadata.ImagePositionPatient[2];
-              
-              // If first slice has higher Z than last slice, slices are likely reversed
-              if (firstSliceZ > lastSliceZ) {
-                shouldReverse = true;
-                correctionReason = 'Axial slices ordered from superior to inferior (should be inferior to superior)';
-              }
-            }
-          }
-          
-          // Additional check: analyze label distribution regardless of orientation
-          const totalSlices = labelmaps2D.length;
-          const firstQuarter = labelmaps2D.slice(0, Math.floor(totalSlices / 4));
-          const lastQuarter = labelmaps2D.slice(Math.floor(totalSlices * 3/4));
-          
-          // Count labeled pixels in first and last quarters
-          const firstQuarterLabels = firstQuarter.reduce((sum, lm) => 
-            sum + lm.segmentsOnLabelmap.filter(x => x > 0).length, 0);
-          const lastQuarterLabels = lastQuarter.reduce((sum, lm) => 
-            sum + lm.segmentsOnLabelmap.filter(x => x > 0).length, 0);
-          
-          const totalLabeledPixels = firstQuarterLabels + lastQuarterLabels;
-          const imbalanceRatio = lastQuarterLabels > 0 ? firstQuarterLabels / lastQuarterLabels : 
-                                firstQuarterLabels > 0 ? 999 : 1;
-          
-          console.log('📊 Label distribution analysis:', {
-            totalSlices,
-            firstQuarterLabels,
-            lastQuarterLabels,
-            totalLabeledPixels,
-            imbalanceRatio
-          });
-          
-          // If there's significant imbalance, likely the slices are reversed
-          if (imbalanceRatio > 2.0 && totalLabeledPixels > 3) {
-            shouldReverse = true;
-            correctionReason = `Label distribution imbalance (ratio: ${imbalanceRatio.toFixed(2)})`;
-          }
-        }
-        
-        // Apply reversal if needed
-        if (shouldReverse) {
-          console.log('🔄 Reversing slice order:', correctionReason);
-          labelmaps2D = labelmaps2D.reverse();
-          
-          console.log('✅ Applied slice order correction');
-        } else {
-          console.log('✅ Slice order appears correct (no correction needed)');
-        }
-      } else {
-        console.log('ℹ️ Too few slices for slice order analysis');
-      }
-
-      // -------------------------------------------------------------------
-      // END slice-order correction
-      // -------------------------------------------------------------------
+      // IMPORTANT FIX: Reverse the labelmaps2D array
+      // The segImages from cornerstone appear to be in reverse order compared to the original DICOM slices
+      // This causes labels drawn on slice 1 to appear on the last slice after saving
+      labelmaps2D.reverse();
 
       // Guard ensure labeled pixels
       const allSegmentsOnLabelmap = labelmaps2D.map(lm => lm.segmentsOnLabelmap);
@@ -356,8 +238,6 @@ const commandsModule = ({
         maintainSliceOrder: true,
       };
 
-      console.log('🔧 Generating segmentation with enhanced options:', enhancedOptions);
-
       const generatedSegmentation = generateSegmentation(
         referencedImages,
         labelmap3D,
@@ -367,7 +247,6 @@ const commandsModule = ({
 
       // Enhanced validation and correction of generated segmentation orientation
       if (generatedSegmentation?.dataset && referenceMetadata) {
-        console.log('🔧 Applying comprehensive orientation preservation...');
         
         // Critical orientation fields - always copy from reference
         const orientationFields = [
@@ -402,26 +281,10 @@ const commandsModule = ({
           }
         }
         
-        console.log('✅ Applied orientation preservation:', {
-          appliedFields,
-          totalFieldsApplied: appliedFields.length,
-          hasImageOrientationPatient: !!generatedSegmentation.dataset.ImageOrientationPatient,
-          hasImagePositionPatient: !!generatedSegmentation.dataset.ImagePositionPatient,
-          hasFrameOfReferenceUID: !!generatedSegmentation.dataset.FrameOfReferenceUID
-        });
       } else {
         console.warn('⚠️ Cannot apply orientation preservation - missing dataset or reference metadata');
       }
       
-      console.log('✅ Final generated segmentation dataset summary:', {
-        hasImageOrientationPatient: !!generatedSegmentation?.dataset?.ImageOrientationPatient,
-        hasImagePositionPatient: !!generatedSegmentation?.dataset?.ImagePositionPatient,
-        hasPixelSpacing: !!generatedSegmentation?.dataset?.PixelSpacing,
-        hasSliceThickness: !!generatedSegmentation?.dataset?.SliceThickness,
-        hasFrameOfReferenceUID: !!generatedSegmentation?.dataset?.FrameOfReferenceUID,
-        seriesDescription: generatedSegmentation?.dataset?.SeriesDescription
-      });
-
       return generatedSegmentation;
     },
     /**

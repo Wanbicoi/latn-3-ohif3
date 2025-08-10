@@ -57,7 +57,10 @@ export default function sortInstances(instances: Array<any>) {
     };
   });
 
-  distanceInstancePairs.sort((a, b) => b.distance - a.distance);
+  // IMPORTANT: Sort in ascending order (a - b) instead of descending (b - a)
+  // This ensures slices are ordered from inferior to superior (feet to head)
+  // which matches the expected DICOM slice ordering
+  distanceInstancePairs.sort((a, b) => a.distance - b.distance);
 
   const sortedInstances = distanceInstancePairs.map(a => a.instance);
 
