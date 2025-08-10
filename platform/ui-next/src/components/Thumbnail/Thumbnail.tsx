@@ -416,100 +416,87 @@ const Thumbnail = ({
   };
 
   const handleDeleteClick = () => {
-    if (isAdmin) {
-      // Admin can delete directly - show beautiful confirmation dialog
-      const dialogId = 'delete-segmentation-confirm';
-      const { uiDialogService } = servicesManager.services;
+    // IMPORTANT: Removed admin check - anyone can now delete SEG series
+    // Show beautiful confirmation dialog
+    const dialogId = 'delete-segmentation-confirm';
+    const { uiDialogService } = servicesManager.services;
 
-      uiDialogService.create({
-        id: dialogId,
-        centralize: true,
-        isDraggable: false,
-        showOverlay: true,
-        content: Dialog,
-        contentProps: {
-          title: '🗑️ Delete Segmentation',
-          body: () => (
-            <div className="bg-primary-dark p-6 text-white">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20">
-                    <Icons.Trash className="h-6 w-6 text-red-400" />
+    uiDialogService.create({
+      id: dialogId,
+      centralize: true,
+      isDraggable: false,
+      showOverlay: true,
+      content: Dialog,
+      contentProps: {
+        title: '🗑️ Delete Segmentation',
+        body: () => (
+          <div className="bg-primary-dark p-6 text-white">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20">
+                  <Icons.Trash className="h-6 w-6 text-red-400" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="mb-3 text-lg font-semibold text-white">
+                  Are you sure you want to delete this segmentation?
+                </p>
+                <div className="bg-secondary-dark mb-4 rounded-lg p-4">
+                  <div className="mb-2 text-sm text-gray-300">
+                    <span className="font-medium text-blue-400">Series:</span> {description}
+                  </div>
+                  <div className="mb-2 text-sm text-gray-300">
+                    <span className="font-medium text-blue-400">Modality:</span> {modality}
+                  </div>
+                  <div className="text-sm text-gray-300">
+                    <span className="font-medium text-blue-400">Series Number:</span>{' '}
+                    {seriesNumber}
                   </div>
                 </div>
-                <div className="flex-1">
-                  <p className="mb-3 text-lg font-semibold text-white">
-                    Are you sure you want to delete this segmentation?
+                <div className="rounded-lg border border-red-500/50 bg-red-900/30 p-3">
+                  <p className="text-sm text-red-200">
+                    ⚠️ <strong>Warning:</strong> This action cannot be undone. All segmentation
+                    data will be permanently removed from the system.
                   </p>
-                  <div className="bg-secondary-dark mb-4 rounded-lg p-4">
-                    <div className="mb-2 text-sm text-gray-300">
-                      <span className="font-medium text-blue-400">Series:</span> {description}
-                    </div>
-                    <div className="mb-2 text-sm text-gray-300">
-                      <span className="font-medium text-blue-400">Modality:</span> {modality}
-                    </div>
-                    <div className="text-sm text-gray-300">
-                      <span className="font-medium text-blue-400">Series Number:</span>{' '}
-                      {seriesNumber}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-red-500/50 bg-red-900/30 p-3">
-                    <p className="text-sm text-red-200">
-                      ⚠️ <strong>Warning:</strong> This action cannot be undone. All segmentation
-                      data will be permanently removed from the system.
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
-          ),
-          actions: [
-            {
-              id: 'cancel',
-              text: 'Cancel',
-              type: ButtonEnums.type.secondary,
-            },
-            {
-              id: 'delete',
-              text: 'Delete Permanently',
-              type: ButtonEnums.type.primary,
-              classes: ['bg-red-600', 'hover:bg-red-700', 'border-red-600'],
-            },
-          ],
-          onClose: () => uiDialogService.dismiss({ id: dialogId }),
-          onSubmit: async ({ action }) => {
-            switch (action.id) {
-              case 'delete':
-                onReject();
-                uiDialogService.dismiss({ id: dialogId });
-                // Show success notification
-                servicesManager.services.uiNotificationService.show({
-                  title: 'Segmentation Deleted',
-                  message: `Successfully deleted: ${description}`,
-                  type: 'success',
-                  duration: 3000,
-                });
-                break;
-              case 'cancel':
-                uiDialogService.dismiss({ id: dialogId });
-                break;
-            }
+          </div>
+        ),
+        actions: [
+          {
+            id: 'cancel',
+            text: 'Cancel',
+            type: ButtonEnums.type.secondary,
           },
+          {
+            id: 'delete',
+            text: 'Delete Permanently',
+            type: ButtonEnums.type.primary,
+            classes: ['bg-red-600', 'hover:bg-red-700', 'border-red-600'],
+          },
+        ],
+        onClose: () => uiDialogService.dismiss({ id: dialogId }),
+        onSubmit: async ({ action }) => {
+          switch (action.id) {
+            case 'delete':
+              onReject();
+              uiDialogService.dismiss({ id: dialogId });
+              // Show success notification
+              servicesManager.services.uiNotificationService.show({
+                title: 'Segmentation Deleted',
+                message: `Successfully deleted: ${description}`,
+                type: 'success',
+                duration: 3000,
+              });
+              break;
+            case 'cancel':
+              uiDialogService.dismiss({ id: dialogId });
+              break;
+          }
         },
-      });
-    } else {
-      // Non-admin users get guidance message
-      const fullName = userProfile
-        ? `${userProfile.first_name} ${userProfile.last_name}`.trim()
-        : 'Doctor';
-
-      servicesManager.services.uiNotificationService.show({
-        title: 'Administrative Permission Required',
-        message: `${fullName}, to delete this segmentation, please use "Clinical Review Request" above to submit a removal request to the administrator.`,
-        type: 'info',
-        duration: 6000,
-      });
-    }
+      },
+    });
   };
 
   // Handle clinical validation selection with threads check
@@ -1180,11 +1167,7 @@ const Thumbnail = ({
                         <Icons.Trash className="h-4 w-4" />
                         <div>
                           <div className="font-medium">Delete</div>
-                          <div className="text-xs text-gray-400">
-                            {isAdmin
-                              ? 'Permanently remove segmentation'
-                              : 'Requires admin permission'}
-                          </div>
+                          <div className="text-xs text-gray-400">Permanently remove segmentation</div>
                         </div>
                       </DropdownMenuItem>
                     </>

@@ -1064,43 +1064,75 @@ function commandsModule({
      */
     deleteSegmentationCommand: async ({ segmentationId }) => {
       const { segmentationService, displaySetService } = servicesManager.services;
+      
+      // Remove from segmentation service first
+      const segmentation = segmentationService.getSegmentation(segmentationId);
+      if (!segmentation) {
+        console.warn('Segmentation not found:', segmentationId);
+        return;
+      }
+      
       segmentationService.remove(segmentationId);
+      
+      // Find the corresponding display set by matching the segmentation label
+      // This allows deleting any SEG, not just the current user's
+      const displaySets = displaySetService.getActiveDisplaySets();
+      const displaySet = displaySets.find(ds => {
+        // Match by segmentation label or series description
+        return ds.Modality === 'SEG' && 
+               (ds.SeriesDescription === segmentation.label || 
+                ds.displaySetInstanceUID === segmentationId);
+      });
 
-      const { data } = await supabase.auth.getUser();
-      const taskId = new URLSearchParams(location.search).get('taskId');
-      const displaySet = displaySetService
-        .getActiveDisplaySets()
-        .find(d => d.SeriesDescription == `${data.user.email}-${taskId}`);
-
-      if (!displaySet) return;
+      if (!displaySet) {
+        console.warn('Display set not found for segmentation:', segmentationId);
+        return;
+      }
 
       const seriesInstanceUID = displaySet.SeriesInstanceUID;
 
-      if (!seriesInstanceUID) return;
+      if (!seriesInstanceUID) {
+        console.warn('No SeriesInstanceUID found');
+        return;
+      }
 
+      // Delete from Orthanc
       const ORTHANC_SERVER_URL = 'https://mediflow-latn.duckdns.org/datasource';
       const getOrthancSeriesUuidUrl = ORTHANC_SERVER_URL + '/tools/find';
-      const findSeriesUUID = await fetch(getOrthancSeriesUuidUrl, {
-        method: 'POST',
-        body: JSON.stringify({
-          Level: 'Series',
-          Query: {
-            SeriesInstanceUID: seriesInstanceUID,
+      
+      try {
+        const findSeriesUUID = await fetch(getOrthancSeriesUuidUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            Level: 'Series',
+            Query: {
+              SeriesInstanceUID: seriesInstanceUID,
+            },
+          }),
+        });
 
-      const seriesUUIDs = await findSeriesUUID.json();
-      if (!seriesUUIDs || !seriesUUIDs[0]) return;
+        const seriesUUIDs = await findSeriesUUID.json();
+        if (!seriesUUIDs || !seriesUUIDs[0]) {
+          console.warn('Series not found in Orthanc');
+          return;
+        }
 
-      const deleteUrl = `${ORTHANC_SERVER_URL}/series/${seriesUUIDs[0]}`;
+        const deleteUrl = `${ORTHANC_SERVER_URL}/series/${seriesUUIDs[0]}`;
 
-      await fetch(deleteUrl, {
-        method: 'DELETE',
-        headers: {
-          Accept: 'application/dicom+json',
-        },
-      });
+        await fetch(deleteUrl, {
+          method: 'DELETE',
+          headers: {
+            Accept: 'application/dicom+json',
+          },
+        });
+        
+        console.log('✅ Successfully deleted segmentation:', segmentationId);
+      } catch (error) {
+        console.error('❌ Error deleting from Orthanc:', error);
+      }
     },
 
     /**
