@@ -1,6 +1,11 @@
-import type { actionIcon } from '../types/actionsIcon';
+import type { actionIcon } from '../types';
 
 const defaultActionIcons = [
+  {
+    id: 'downloadFullStudy',
+    iconName: 'Download',
+    value: false,
+  },
   {
     id: 'settings',
     iconName: 'Settings',

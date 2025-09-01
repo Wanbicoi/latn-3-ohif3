@@ -51,6 +51,94 @@ function PanelStudyBrowser({
     actionIcon.value = !actionIcon.value;
     const newActionIcons = [...actionIcons];
     setActionIcons(newActionIcons);
+    
+    // Handle downloadFullStudy action
+    if (actionIcon.id === 'downloadFullStudy') {
+      handleDownloadFullStudy();
+    }
+  };
+
+  // Download full study from Orthanc
+  const handleDownloadFullStudy = async () => {
+    try {
+      // Get current study instance UID
+      const displaySets = displaySetService.getActiveDisplaySets();
+      if (!displaySets || displaySets.length === 0) {
+        uiNotificationService.show({
+          title: 'No Study',
+          message: 'No study is currently loaded',
+          type: 'error',
+        });
+        return;
+      }
+
+      const studyInstanceUID = displaySets[0].StudyInstanceUID;
+      
+      // Get Orthanc configuration
+      const dataSourceConfig = (dataSource as any).getConfig?.();
+      const orthancUrl = dataSourceConfig?.wadoRoot || dataSourceConfig?.qidoRoot || '';
+      
+      if (!orthancUrl) {
+        console.error('Orthanc URL not found');
+        uiNotificationService.show({
+          title: 'Configuration Error',
+          message: 'Orthanc server URL not found',
+          type: 'error',
+        });
+        return;
+      }
+
+      // Find Orthanc study ID using the /tools/find endpoint
+      const findUrl = `${orthancUrl.replace('/dicom-web', '')}/tools/find`;
+      const findResponse = await fetch(findUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          Level: 'Study',
+          Query: {
+            StudyInstanceUID: studyInstanceUID,
+          },
+        }),
+      });
+
+      if (!findResponse.ok) {
+        throw new Error('Failed to find study in Orthanc');
+      }
+
+      const orthancStudyIds = await findResponse.json();
+      
+      if (!orthancStudyIds || orthancStudyIds.length === 0) {
+        throw new Error('Study not found in Orthanc');
+      }
+
+      const orthancStudyId = orthancStudyIds[0];
+
+      // Create download URL for the study archive
+      const downloadUrl = `${orthancUrl.replace('/dicom-web', '')}/studies/${orthancStudyId}/archive`;
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `study_${studyInstanceUID}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      uiNotificationService.show({
+        title: 'Download Started',
+        message: 'Full study download has started',
+        type: 'success',
+      });
+    } catch (error) {
+      console.error('Error downloading full study:', error);
+      uiNotificationService.show({
+        title: 'Download Error',
+        message: error.message || 'Failed to download full study',
+        type: 'error',
+      });
+    }
   };
 
   // only one is true at a time
