@@ -1064,23 +1064,23 @@ function commandsModule({
      */
     deleteSegmentationCommand: async ({ segmentationId }) => {
       const { segmentationService, displaySetService } = servicesManager.services;
-      
+
       // Remove from segmentation service first
       const segmentation = segmentationService.getSegmentation(segmentationId);
       if (!segmentation) {
         console.warn('Segmentation not found:', segmentationId);
         return;
       }
-      
+
       segmentationService.remove(segmentationId);
-      
+
       // Find the corresponding display set by matching the segmentation label
       // This allows deleting any SEG, not just the current user's
       const displaySets = displaySetService.getActiveDisplaySets();
       const displaySet = displaySets.find(ds => {
         // Match by segmentation label or series description
-        return ds.Modality === 'SEG' && 
-               (ds.SeriesDescription === segmentation.label || 
+        return ds.Modality === 'SEG' &&
+               (ds.SeriesDescription === segmentation.label ||
                 ds.displaySetInstanceUID === segmentationId);
       });
 
@@ -1097,9 +1097,9 @@ function commandsModule({
       }
 
       // Delete from Orthanc
-      const ORTHANC_SERVER_URL = 'https://mediflow-latn.duckdns.org/datasource';
+      const ORTHANC_SERVER_URL = 'https://mediflow.freemyip.com/datasource';
       const getOrthancSeriesUuidUrl = ORTHANC_SERVER_URL + '/tools/find';
-      
+
       try {
         const findSeriesUUID = await fetch(getOrthancSeriesUuidUrl, {
           method: 'POST',
@@ -1128,7 +1128,7 @@ function commandsModule({
             Accept: 'application/dicom+json',
           },
         });
-        
+
         console.log('✅ Successfully deleted segmentation:', segmentationId);
       } catch (error) {
         console.error('❌ Error deleting from Orthanc:', error);

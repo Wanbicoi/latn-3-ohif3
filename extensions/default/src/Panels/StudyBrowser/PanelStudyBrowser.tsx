@@ -51,7 +51,7 @@ function PanelStudyBrowser({
     actionIcon.value = !actionIcon.value;
     const newActionIcons = [...actionIcons];
     setActionIcons(newActionIcons);
-    
+
     // Handle downloadFullStudy action
     if (actionIcon.id === 'downloadFullStudy') {
       handleDownloadFullStudy();
@@ -73,11 +73,11 @@ function PanelStudyBrowser({
       }
 
       const studyInstanceUID = displaySets[0].StudyInstanceUID;
-      
+
       // Get Orthanc configuration
       const dataSourceConfig = (dataSource as any).getConfig?.();
       const orthancUrl = dataSourceConfig?.wadoRoot || dataSourceConfig?.qidoRoot || '';
-      
+
       if (!orthancUrl) {
         console.error('Orthanc URL not found');
         uiNotificationService.show({
@@ -108,7 +108,7 @@ function PanelStudyBrowser({
       }
 
       const orthancStudyIds = await findResponse.json();
-      
+
       if (!orthancStudyIds || orthancStudyIds.length === 0) {
         throw new Error('Study not found in Orthanc');
       }
@@ -117,7 +117,7 @@ function PanelStudyBrowser({
 
       // Create download URL for the study archive
       const downloadUrl = `${orthancUrl.replace('/dicom-web', '')}/studies/${orthancStudyId}/archive`;
-      
+
       // Create a temporary link and trigger download
       const link = document.createElement('a');
       link.href = downloadUrl;
@@ -497,7 +497,7 @@ function _mapDisplaySets(
         displaySetData.onReject = async () => {
           try {
             // Use production Orthanc URL
-            const orthancUrl = 'https://mediflow-latn.duckdns.org/datasource';
+            const orthancUrl = 'https://mediflow.freemyip.com/datasource';
 
             console.log('🗑️ Deleting SEG series:', {
               displaySetInstanceUID: ds.displaySetInstanceUID,

@@ -64,7 +64,7 @@ export const SeriesDownloadButton: React.FC<SeriesDownloadButtonProps> = ({
 
     try {
       // Call Orthanc API for download - hardcode production URL
-      const orthancUrl = 'https://mediflow-latn.duckdns.org/datasource';
+      const orthancUrl = 'https://mediflow.freemyip.com/datasource';
       const downloadUrl = `${orthancUrl}/series/${seriesInstanceUID}/archive`;
 
       const response = await fetch(downloadUrl, {
