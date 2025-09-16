@@ -714,74 +714,13 @@ const commandsModule = ({
           type: 'success',
         });
 
-        // Call workflow_annotate_submit for label assignment
-        try {
-          const urlParams = new URLSearchParams(window.location.search);
-          const taskId = urlParams.get('taskId'); // This is task_assignment_id
-          const seriesInstanceUID = naturalizedReport.SeriesInstanceUID;
-          
-          // Get current user
-          const { data: userData } = await supabaseClient.auth.getUser();
-          const authorId = userData?.user?.id;
-          
-          console.log('🔄 Calling workflow_annotate_submit for label assignment:', {
-            taskId,
-            seriesInstanceUID,
-            authorId: !!authorId,
-            seriesDescription: SeriesDescription
-          });
-          
-          if (taskId && authorId && seriesInstanceUID) {
-            // Call the workflow function from public_v2 schema
-            const { data: workflowData, error: workflowError } = await supabaseClient
-              .rpc('workflow_annotate_submit', {
-                task_assignment_id: taskId,
-                segmentation_id: seriesInstanceUID  // SeriesInstanceUID is the segmentation_id
-              }, {
-                schema: 'public_v2'
-              });
-            
-            if (workflowError) {
-              console.error('❌ Workflow function failed ohif:', workflowError);
-              uiNotificationService.show({
-                title: 'Label Assignment Failed',
-                message: `Segmentation saved but workflow failed: ${workflowError.message}`,
-                type: 'warning',
-                duration: 4000,
-              });
-            } else {
-              console.log('✅ Workflow function completed successfully:', workflowData);
-              uiNotificationService.show({
-                title: 'Label Saved Successfully',
-                message: `Label "${SeriesDescription}" assigned and saved successfully! 🎉`,
-                type: 'success',
-                duration: 3000,
-              });
-            }
-          } else {
-            console.warn('⚠️ Missing required parameters for workflow save:', {
-              taskId: !!taskId,
-              authorId: !!authorId,
-              seriesInstanceUID: !!seriesInstanceUID
-            });
-            
-            uiNotificationService.show({
-              title: 'Segmentation Saved',
-              message: 'Segmentation saved to Orthanc (label assignment skipped)',
-              type: 'info',
-              duration: 2500,
-            });
-          }
-        } catch (error) {
-          console.error('❌ Label assignment process failed:', error);
-          // Don't throw - DICOM save was successful
-          uiNotificationService.show({
-            title: 'Label Assignment Error',
-            message: `Segmentation saved but label assignment failed: ${error.message || 'Unknown error'}`,
-            type: 'error',
-            duration: 4000,
-          });
-        }
+        // Do not auto-submit workflow on save anymore. Inform user to use the new Submit button.
+        uiNotificationService.show({
+          title: 'Segmentation Saved',
+          message: 'Saved to Orthanc. Use “Submit for Review” to forward this case.',
+          type: 'info',
+          duration: 3000,
+        });
 
         // The "Mode" route listens for DicomMetadataStore changes
         // When a new instance is added, it listens and

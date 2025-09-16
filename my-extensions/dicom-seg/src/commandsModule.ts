@@ -275,68 +275,12 @@ const commandsModule = ({
       console.log(dataSource);
       await dataSource.store.dicom(naturalizedReport);
 
-      // Save to database and call workflow function
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const taskId = urlParams.get('taskId'); // This is task_assignment_id
-        const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
-
-        // Get current user
-        const { data: userData } = await supabaseClient.auth.getUser();
-        const authorId = userData?.user?.id;
-
-        if (taskId && authorId && naturalizedReport.SeriesInstanceUID) {
-          console.log('🎯 Calling workflow_annotate_submit:', {
-            task_assignment_id: taskId,
-            segmentation_id: naturalizedReport.SeriesInstanceUID,
-          });
-
-          // Call workflow function for label assignment (schema public_v2 already configured)
-          const { data: workflowData, error: workflowError } = await supabaseClient.rpc(
-            'workflow_annotate_submit',
-            {
-              task_assignment_id: taskId,
-              segmentation_id: naturalizedReport.SeriesInstanceUID,
-            }
-          );
-
-          if (workflowError) {
-            console.error('❌ Workflow function failed:', workflowError);
-            toastService.warning(
-              'Label Assignment Failed my schema',
-              `Segmentation saved but workflow failed: ${workflowError.message}`,
-              5000
-            );
-          } else {
-            console.log('✅ Workflow function completed successfully:', workflowData);
-            toastService.success(
-              'Label Saved Successfully! 🎉',
-              `Label "${SeriesDescription}" assigned and saved successfully`,
-              4000
-            );
-          }
-        } else {
-          console.warn('⚠️ Missing required parameters for workflow save:', {
-            taskId: !!taskId,
-            authorId: !!authorId,
-            seriesInstanceUID: !!naturalizedReport.SeriesInstanceUID,
-          });
-
-          toastService.info(
-            'Segmentation Saved',
-            'Segmentation saved to Orthanc (label assignment skipped)',
-            3000
-          );
-        }
-      } catch (error) {
-        console.error('❌ Save process failed:', error);
-        // Don't throw - DICOM save was successful
-        toastService.error(
-          'Label Assignment Error',
-          `Segmentation saved but label assignment failed: ${error.message || 'Unknown error'}`,
-          5000
+              // Do not auto-submit workflow on save anymore. Inform user to use the new Submit button.
+        toastService.info(
+          'Segmentation Saved',
+          'Saved to Orthanc. Use “Submit for Review” to forward this case.',
+          3000
         );
-      }
 
       // The "Mode" route listens for DicomMetadataStore changes
       // When a new instance is added, it listens and

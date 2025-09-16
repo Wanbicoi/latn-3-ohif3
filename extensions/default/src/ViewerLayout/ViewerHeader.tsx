@@ -607,6 +607,67 @@ const ApproveButton = ({ refreshTrigger, showToast }: { refreshTrigger?: number,
   );
 };
 
+// New: Submit For Review Button
+const SubmitForReviewButton = ({ showToast }: { showToast: (message: string, type: 'success' | 'error') => void }) => {
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+
+    try {
+      const selectedSegmentation = window.selectedSegmentationForApproval;
+      if (!selectedSegmentation) {
+        showToast('Please select a segmentation to submit for review', 'error');
+        return;
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const taskId = urlParams.get('taskId');
+      if (!taskId) {
+        showToast('No task ID found', 'error');
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      const supabaseUrl = 'https://bmeemseeqpnsqgwdpcoj.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtZWVtc2VlcXBuc3Fnd2RwY29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MjM0OTcsImV4cCI6MjA1OTM5OTQ5N30.qGfF6_6sw5K-9QzDOcwjE-XOpMb-q2D5HgxFRB8LcYA';
+      const client = createClient(supabaseUrl, supabaseKey, {
+        db: { schema: 'public_v2' }
+      });
+
+      const { error } = await client.rpc('workflow_annotate_submit', {
+        task_assignment_id: taskId,
+        segmentation_id: selectedSegmentation.seriesInstanceUID
+      });
+
+      if (error) {
+        showToast(`Submit failed: ${error.message}`, 'error');
+      } else {
+        showToast('Submitted for review successfully', 'success');
+      }
+    } catch (e: any) {
+      showToast(`Submit failed: ${e?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleSubmit}
+      disabled={isSubmitting}
+      className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-300 backdrop-blur-sm border font-medium text-sm shadow-lg hover:shadow-xl bg-amber-600/80 hover:bg-amber-600 text-white border-amber-500/50 hover:scale-105 whitespace-nowrap"
+      title="Submit this segmentation for review"
+    >
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14A1 1 0 003 18h14a1 1 0 00.894-1.447l-7-14zM11 14H9v-2h2v2zm0-3H9V7h2v4z" />
+      </svg>
+      <span>{isSubmitting ? 'Submitting...' : 'Submit for Review'}</span>
+    </button>
+  );
+};
+
 // User Account Component  
 const UserAccountHeaderOHIF = ({ refreshTrigger }: { refreshTrigger?: number }) => {
   const [user, setUser] = React.useState(null);
@@ -1198,54 +1259,30 @@ function ViewerHeaderContent({
           </div>
 
           {/* Right - Comment & Review Buttons + User Account */}
-          <div className="flex items-center gap-4">
-            {/* 🎯 Comment & Review Buttons */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  const urlParams = new URLSearchParams(window.location.search);
-                  const taskId = urlParams.get('taskId');
-                  const studyInstanceUIDs = urlParams.get('StudyInstanceUIDs');
-                  
-                  if (taskId) {
-                    // Create dynamic URL based on current location
-                    const currentURL = new URL(window.location.href);
-                    
-                    // Build comment URL - replace last part of path with 'comments'
-                    const pathParts = currentURL.pathname.split('/');
-                    pathParts[pathParts.length - 1] = 'comments';
-                    const commentPath = pathParts.join('/');
-                    
-                    const commentURL = new URL(currentURL.origin + commentPath);
-                    
-                    // Add only the needed parameters
-                    const commentParams = new URLSearchParams();
-                    if (taskId) commentParams.set('taskId', taskId);
-                    if (studyInstanceUIDs) commentParams.set('StudyInstanceUIDs', studyInstanceUIDs);
-                    
-                    commentURL.search = commentParams.toString();
-                    
-                    window.open(commentURL.toString(), '_blank');
-                  } else {
-                    alert('No task ID found in URL');
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600/80 hover:bg-blue-600 text-white rounded-xl transition-all duration-300 backdrop-blur-sm border border-blue-500/50 font-medium text-sm shadow-lg hover:shadow-xl hover:scale-105"
-                title="Open task comments and discussion"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd"/>
-                </svg>
-                <span>Comments</span>
-              </button>
-              
-              <ApproveButton refreshTrigger={refreshTrigger} showToast={showToast} />
-            </div>
+          <div className="flex items-center gap-4 flex-wrap justify-end">
+            <button
+              onClick={() => {
+                const event = new CustomEvent('open-segment-comments');
+                window.dispatchEvent(event);
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 backdrop-blur-sm border font-medium text-sm shadow-lg hover:shadow-xl bg-slate-600/80 hover:bg-slate-600 text-white border-slate-500/50 hover:scale-105"
+              title="Open task comments and discussion"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd"/>
+              </svg>
+              <span>Comments</span>
+            </button>
+
+            <SubmitForReviewButton showToast={showToast} />
             
-            {/* 🔄 Refresh Button - Positioned between Approve and Profile */}
+            <ApproveButton refreshTrigger={refreshTrigger} showToast={showToast} />
+            
             <RefreshButton onRefresh={handleRefresh} />
             
-            <UserAccountHeaderOHIF refreshTrigger={userRefreshTrigger} />
+            <div className="shrink-0">
+              <UserAccountHeaderOHIF refreshTrigger={userRefreshTrigger} />
+            </div>
           </div>
         </div>
       </div>
