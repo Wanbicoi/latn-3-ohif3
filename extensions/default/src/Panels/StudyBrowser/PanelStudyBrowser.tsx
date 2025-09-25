@@ -497,7 +497,7 @@ function _mapDisplaySets(
         displaySetData.onReject = async () => {
           try {
             // Use production Orthanc URL
-            const orthancUrl = 'https://mediflow.freemyip.com/datasource';
+            const orthancUrl = 'https://latn3.selab.edu.vn/datasource';
 
             console.log('🗑️ Deleting SEG series:', {
               displaySetInstanceUID: ds.displaySetInstanceUID,

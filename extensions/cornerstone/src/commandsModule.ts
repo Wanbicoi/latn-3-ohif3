@@ -1097,7 +1097,7 @@ function commandsModule({
       }
 
       // Delete from Orthanc
-      const ORTHANC_SERVER_URL = 'https://mediflow.freemyip.com/datasource';
+      const ORTHANC_SERVER_URL = 'https://latn3.selab.edu.vn/datasource';
       const getOrthancSeriesUuidUrl = ORTHANC_SERVER_URL + '/tools/find';
 
       try {

@@ -148,9 +148,9 @@ window.config = {
       configuration: {
         friendlyName: 'AWS S3 Static wado server',
         name: 'aws',
-        wadoUriRoot: 'https://mediflow.freemyip.com/datasource/dicom-web',
-        qidoRoot: 'https://mediflow.freemyip.com/datasource/dicom-web',
-        wadoRoot: 'https://mediflow.freemyip.com/datasource/dicom-web',
+        wadoUriRoot: 'https://latn3.selab.edu.vn/datasource/dicom-web',
+        qidoRoot: 'https://latn3.selab.edu.vn/datasource/dicom-web',
+        wadoRoot: 'https://latn3.selab.edu.vn/datasource/dicom-web',
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',

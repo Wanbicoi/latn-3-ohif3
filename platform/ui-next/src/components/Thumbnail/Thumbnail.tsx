@@ -724,7 +724,7 @@ const Thumbnail = ({
   const handleDownloadSeries = async () => {
     try {
       // Use production Orthanc URL - no process.env in browser
-      const orthancUrl = 'https://mediflow.freemyip.com/datasource';
+      const orthancUrl = 'https://latn3.selab.edu.vn/datasource';
 
       // Debug: Log all available information
       console.log('🔍 Debug Info:');
